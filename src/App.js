@@ -135,8 +135,8 @@ function App() {
     venueGoogleLink: 'https://maps.google.com/?q=Saminro+Grand+Palace+Veyangoda',
     theme: 'goldLight',
     guestName: 'Mr. / Mr. & Mrs. / Ms. / Family',
-    coupleOutdoorImg: '/images/couple_outdoor.png',
-    couplePortraitImg: '/images/couple_portrait.png',
+    coupleOutdoorImg: 'images/couple_outdoor.png',
+    couplePortraitImg: 'images/couple_portrait.png',
     bgMusicUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'
   });
 
@@ -455,8 +455,8 @@ function App() {
       venueGoogleLink: 'https://maps.google.com/?q=Saminro+Grand+Palace+Veyangoda',
       theme: 'goldLight',
       guestName: 'Mr. / Mr. & Mrs. / Ms. / Family',
-      coupleOutdoorImg: '/images/couple_outdoor.png',
-      couplePortraitImg: '/images/couple_portrait.png',
+      coupleOutdoorImg: 'images/couple_outdoor.png',
+      couplePortraitImg: 'images/couple_portrait.png',
       bgMusicUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'
     };
     setSettings(defaultSettings);
