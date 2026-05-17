@@ -239,6 +239,7 @@ function App() {
         });
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.bgMusicUrl]);
 
   // --- TICK COUNTDOWN TIMER ---
@@ -344,7 +345,6 @@ function App() {
       });
     }
 
-    let animationFrame;
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       let active = false;
@@ -368,7 +368,7 @@ function App() {
       });
 
       if (active) {
-        animationFrame = requestAnimationFrame(draw);
+        requestAnimationFrame(draw);
       } else {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
