@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import LoadingScreen from './components/LoadingScreen';
 
 // Theme configurations for the Wedding Invitation
 const themes = {
@@ -121,6 +122,26 @@ const themes = {
     darkMuted: 'bg-rose-950/60',
     polaroidBg: 'bg-stone-50 text-stone-800',
     dividerColor: 'from-transparent via-amber-200/40 to-transparent'
+  },
+  flora: {
+    name: 'Forest Sage (Flora)',
+    bgGradient: 'from-[#F4F6F4] via-[#E8ECE7] to-[#DCE3DA]',
+    primary: 'emerald',
+    text: 'text-emerald-950',
+    accent: 'text-[#5A7C54]',
+    accentHover: 'hover:text-[#415C3C]',
+    accentBg: 'bg-[#5A7C54]',
+    accentBgHover: 'hover:bg-[#415C3C]',
+    accentBorder: 'border-[#5A7C54]',
+    accentBorderMuted: 'border-[#5A7C54]/30',
+    glow: 'shadow-emerald-500/10',
+    btnBg: 'bg-white/90 hover:bg-[#F4F6F4] border border-[#5A7C54]/35 text-[#2C3E28]',
+    btnAccent: 'bg-gradient-to-r from-[#5A7C54] to-[#7FA478] text-white font-semibold shadow-lg shadow-[#5A7C54]/20',
+    cardBg: 'bg-white/95 border border-[#5A7C54]/25 shadow-xl shadow-stone-200/30 text-[#2C3E28]',
+    textMuted: 'text-emerald-800/60',
+    darkMuted: 'bg-emerald-50',
+    polaroidBg: 'bg-white text-stone-800 border border-emerald-100 shadow-xl',
+    dividerColor: 'from-transparent via-[#5A7C54]/40 to-transparent'
   }
 };
 
@@ -133,11 +154,11 @@ function App() {
     venueName: 'Saminro Grand Palace',
     venueAddress: 'Veyangoda, Sri Lanka',
     venueGoogleLink: 'https://maps.google.com/?q=Saminro+Grand+Palace+Veyangoda',
-    theme: 'goldLight',
+    theme: 'flora',
     guestName: 'Mr. / Mr. & Mrs. / Ms. / Family',
     coupleOutdoorImg: 'images/couple_outdoor.png',
     couplePortraitImg: 'images/couple_portrait.png',
-    bgMusicUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'
+    bgMusicUrl: 'https://www.chosic.com/wp-content/uploads/2021/07/In-love-again.mp3'
   });
 
   // Sidebar / panel controls
@@ -151,7 +172,65 @@ function App() {
 
   // --- PLAY MUSIC STATE ---
   const [isPlaying, setIsPlaying] = useState(false);
+  const [audioStarted, setAudioStarted] = useState(false);
   const audioRef = useRef(null);
+  
+  const [showLoading, setShowLoading] = useState(true);
+  const natureAudioRef = useRef(null);
+
+  useEffect(() => {
+    // Nature sound initialization (birds chirping)
+    natureAudioRef.current = new Audio("https://archive.org/download/Red_Library_Animals_Birds/R01-24-Birds%20Chirping%20Outside.mp3");
+    natureAudioRef.current.loop = true;
+    natureAudioRef.current.volume = 0.25; // Keep it soft in the background
+
+    return () => {
+      if (natureAudioRef.current) {
+        natureAudioRef.current.pause();
+      }
+    };
+  }, []);
+
+  // Global click / tap listener to start music on first user interaction anywhere
+  useEffect(() => {
+    if (audioStarted) return;
+
+    const startAudioOnFirstClick = (e) => {
+      if (audioStarted) return;
+
+      // Ignore if clicking the music floating button
+      if (e.target.closest('button') && (e.target.closest('button').title === "Mute Music" || e.target.closest('button').title === "Play Romantic Music")) {
+        return;
+      }
+
+      if (audioRef.current) {
+        audioRef.current.play()
+          .then(() => {
+            setIsPlaying(true);
+            setAudioStarted(true);
+            
+            if (natureAudioRef.current) {
+              natureAudioRef.current.play().catch(e => console.log("Nature auto-play failed on click:", e));
+            }
+
+            // Clean up event listeners
+            document.removeEventListener('click', startAudioOnFirstClick);
+            document.removeEventListener('touchstart', startAudioOnFirstClick);
+          })
+          .catch(e => {
+            console.log("Interaction did not unblock audio yet:", e);
+          });
+      }
+    };
+
+    document.addEventListener('click', startAudioOnFirstClick);
+    document.addEventListener('touchstart', startAudioOnFirstClick);
+
+    return () => {
+      document.removeEventListener('click', startAudioOnFirstClick);
+      document.removeEventListener('touchstart', startAudioOnFirstClick);
+    };
+  }, [audioStarted]);
 
   // --- COUNTDOWN STATE ---
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
@@ -272,7 +351,14 @@ function App() {
   // --- CELEBRATION CONGRATULATIONS PARTICLES SYSTEM ---
   const [hearts, setHearts] = useState([]);
   useEffect(() => {
-    const symbols = [
+    const symbols = settings.theme === 'flora' ? [
+      { char: '🍃', color: 'text-emerald-600/30', flow: 'fall' },
+      { char: '🌸', color: 'text-pink-400/25', flow: 'fall' },
+      { char: '🌿', color: 'text-teal-600/25', flow: 'fall' },
+      { char: '🍂', color: 'text-amber-600/20', flow: 'fall' },
+      { char: '✨', color: 'text-emerald-500/30', flow: 'fall' },
+      { char: '❀', color: 'text-pink-300/30', flow: 'fall' }
+    ] : [
       { char: '✨', color: 'text-amber-400/40', flow: 'fall' },
       { char: '✦', color: 'text-yellow-300/35', flow: 'fall' },
       { char: '❤', color: 'text-amber-500/30', flow: 'rise' },
@@ -282,26 +368,29 @@ function App() {
     ];
 
     const interval = setInterval(() => {
-      if (hearts.length < 35) {
-        const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
-        setHearts(prev => [
-          ...prev,
-          {
-            id: Math.random(),
-            x: Math.random() * 100, // percentage
-            size: Math.random() * 18 + 10, // px
-            duration: Math.random() * 8 + 5, // seconds
-            delay: Math.random() * 2, // seconds
-            char: randomSymbol.char,
-            color: randomSymbol.color,
-            flow: randomSymbol.flow
-          }
-        ]);
-      }
+      setHearts(prev => {
+        if (prev.length < 35) {
+          const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
+          return [
+            ...prev,
+            {
+              id: Math.random(),
+              x: Math.random() * 100, // percentage
+              size: Math.random() * 18 + 10, // px
+              duration: Math.random() * 8 + 5, // seconds
+              delay: Math.random() * 2, // seconds
+              char: randomSymbol.char,
+              color: randomSymbol.color,
+              flow: randomSymbol.flow
+            }
+          ];
+        }
+        return prev;
+      });
     }, 600);
 
     return () => clearInterval(interval);
-  }, [hearts]);
+  }, [settings.theme]);
 
   const cleanHeart = (id) => {
     setHearts(prev => prev.filter(h => h.id !== id));
@@ -311,10 +400,16 @@ function App() {
   const togglePlay = () => {
     if (isPlaying) {
       audioRef.current.pause();
+      if (natureAudioRef.current) natureAudioRef.current.pause();
     } else {
       audioRef.current.play().catch(err => {
         alert("Please interact with the page first so we can play the background music!");
       });
+      if (natureAudioRef.current) {
+        natureAudioRef.current.play().catch(err => {
+          console.log("Nature audio failed to resume:", err);
+        });
+      }
     }
     setIsPlaying(!isPlaying);
   };
@@ -453,11 +548,11 @@ function App() {
       venueName: 'Saminro Grand Palace',
       venueAddress: 'Veyangoda, Sri Lanka',
       venueGoogleLink: 'https://maps.google.com/?q=Saminro+Grand+Palace+Veyangoda',
-      theme: 'goldLight',
+      theme: 'flora',
       guestName: 'Mr. / Mr. & Mrs. / Ms. / Family',
       coupleOutdoorImg: 'images/couple_outdoor.png',
       couplePortraitImg: 'images/couple_portrait.png',
-      bgMusicUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'
+      bgMusicUrl: 'https://www.chosic.com/wp-content/uploads/2021/07/In-love-again.mp3'
     };
     setSettings(defaultSettings);
     setTempSettings(defaultSettings);
@@ -496,6 +591,7 @@ function App() {
   };
 
   const currentTheme = themes[settings.theme] || themes.emerald;
+  const isLight = settings.theme === 'goldLight' || settings.theme === 'flora';
   const brideInitial = settings.brideName ? settings.brideName.charAt(0) : 'N';
   const groomInitial = settings.groomName ? settings.groomName.charAt(0) : 'T';
 
@@ -520,24 +616,147 @@ function App() {
     }
   };
 
-  // SVG Gold Floral Line Divider
-  const GoldOrnament = ({ className = "h-8 w-auto text-amber-400" }) => (
-    <div className="flex items-center justify-center gap-3 my-6 animate-pulse-slow">
-      <div className="h-[1px] w-16 bg-gradient-to-r from-transparent via-amber-500/50 to-transparent"></div>
-      <svg className={className} viewBox="0 0 100 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M50 2 C42 8, 30 8, 20 8 M50 2 C58 8, 70 8, 80 8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-        <path d="M50 18 C42 12, 30 12, 20 12 M50 18 C58 12, 70 12, 80 12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-        <circle cx="50" cy="10" r="3.5" fill="currentColor" className="shadow-lg shadow-amber-400"/>
-        <circle cx="35" cy="10" r="1.5" fill="currentColor"/>
-        <circle cx="65" cy="10" r="1.5" fill="currentColor"/>
-      </svg>
-      <div className="h-[1px] w-16 bg-gradient-to-l from-transparent via-amber-500/50 to-transparent"></div>
-    </div>
-  );
+  // SVG Premium Leaf Corner / Vine decoration
+  const LeafCorner = ({ position = "top-left", className = "" }) => {
+    const transform = 
+      position === "top-left" ? "scale(1, 1)" :
+      position === "top-right" ? "scale(-1, 1) translate(-100, 0)" :
+      position === "bottom-left" ? "scale(1, -1) translate(0, -100)" :
+      "scale(-1, -1) translate(-100, -100)";
+
+    return (
+      <div className={`absolute pointer-events-none z-0 ${className} ${
+        position === "top-left" ? "top-0 left-0" :
+        position === "top-right" ? "top-0 right-0" :
+        position === "bottom-left" ? "bottom-0 left-0" :
+        "bottom-0 right-0"
+      }`}>
+        <svg className="w-32 h-32 md:w-56 md:h-56 text-[#5A7C54]/25 transition-all duration-700" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g transform={transform}>
+            {/* The main elegant branch trailing from the absolute corner (0,0) */}
+            <path d="M0 0 C25 8, 50 35, 75 75" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            
+            {/* Organic, hand-crafted aesthetic leaves along the branch */}
+            {/* Sprout 1 */}
+            <path d="M22 6 C28 1, 36 10, 30 14 C23 17, 16 11, 22 6 Z" fill="currentColor"/>
+            <path d="M19 8 L27 11" stroke="currentColor" strokeWidth="0.6"/>
+            
+            {/* Sprout 2 */}
+            <path d="M42 21 C48 16, 55 26, 50 31 C44 35, 36 28, 42 21 Z" fill="currentColor"/>
+            <path d="M37 25 L45 27" stroke="currentColor" strokeWidth="0.6"/>
+
+            {/* Sprout 3 */}
+            <path d="M58 40 C65 34, 71 45, 66 49 C60 54, 52 46, 58 40 Z" fill="currentColor"/>
+            <path d="M53 45 L61 46" stroke="currentColor" strokeWidth="0.6"/>
+
+            {/* Sprout 4 (Tip Leaf) */}
+            <path d="M72 65 C78 60, 83 71, 78 75 C73 78, 66 71, 72 65 Z" fill="currentColor"/>
+            
+            {/* Opposite side sprouting leaves */}
+            {/* Sprout 5 */}
+            <path d="M10 22 C4 26, 6 36, 14 33 C20 29, 18 19, 10 22 Z" fill="currentColor"/>
+            <path d="M13 25 L11 29" stroke="currentColor" strokeWidth="0.6"/>
+
+            {/* Sprout 6 */}
+            <path d="M28 43 C22 47, 24 57, 32 54 C38 50, 36 40, 28 43 Z" fill="currentColor"/>
+            <path d="M31 46 L29 50" stroke="currentColor" strokeWidth="0.6"/>
+
+            {/* Sprout 7 */}
+            <path d="M46 64 C40 68, 41 78, 49 76 C55 72, 53 62, 46 64 Z" fill="currentColor"/>
+            <path d="M48 67 L46 72" stroke="currentColor" strokeWidth="0.6"/>
+          </g>
+        </svg>
+      </div>
+    );
+  };
+
+  // SVG Gold Floral / Nature Leafy Line Divider
+  const GoldOrnament = ({ className = "h-8 w-auto text-amber-400" }) => {
+    const isFlora = settings.theme === 'flora';
+    const dividerGrad = isFlora ? 'via-[#5A7C54]/50' : 'via-amber-500/50';
+
+    return (
+      <div className="flex items-center justify-center gap-3 my-6 animate-pulse-slow">
+        <div className={`h-[1px] w-16 bg-gradient-to-r from-transparent ${dividerGrad} to-transparent`}></div>
+        {isFlora ? (
+          <svg className="h-8 w-auto text-[#5A7C54]" viewBox="0 0 100 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            {/* Center delicate flower */}
+            <circle cx="50" cy="12" r="3.5" fill="currentColor"/>
+            <circle cx="45" cy="8" r="2.5" fill="currentColor" opacity="0.8"/>
+            <circle cx="55" cy="8" r="2.5" fill="currentColor" opacity="0.8"/>
+            <circle cx="45" cy="16" r="2.5" fill="currentColor" opacity="0.8"/>
+            <circle cx="55" cy="16" r="2.5" fill="currentColor" opacity="0.8"/>
+            <circle cx="50" cy="12" r="1.5" fill="#fff"/>
+            {/* Leaf stems branching out left and right */}
+            <path d="M40 12 C35 12, 28 8, 20 12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            <path d="M60 12 C65 12, 72 8, 80 12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            {/* Small leaves sprouting */}
+            <path d="M30 11 C28 8, 24 9, 26 12" fill="currentColor"/>
+            <path d="M70 11 C72 8, 76 9, 74 12" fill="currentColor"/>
+            <path d="M35 13 C33 16, 29 15, 31 12" fill="currentColor"/>
+            <path d="M65 13 C67 16, 71 15, 69 12" fill="currentColor"/>
+          </svg>
+        ) : (
+          <svg className={className} viewBox="0 0 100 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M50 2 C42 8, 30 8, 20 8 M50 2 C58 8, 70 8, 80 8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            <path d="M50 18 C42 12, 30 12, 20 12 M50 18 C58 12, 70 12, 80 12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            <circle cx="50" cy="10" r="3.5" fill="currentColor" className="shadow-lg shadow-amber-400"/>
+            <circle cx="35" cy="10" r="1.5" fill="currentColor"/>
+            <circle cx="65" cy="10" r="1.5" fill="currentColor"/>
+          </svg>
+        )}
+        <div className={`h-[1px] w-16 bg-gradient-to-l from-transparent ${dividerGrad} to-transparent`}></div>
+      </div>
+    );
+  };
 
   return (
     <div className={`scroll-snap-container bg-gradient-to-b ${currentTheme.bgGradient} ${currentTheme.text} font-sans relative transition-colors duration-1000`}>
       
+      {showLoading && (
+        <LoadingScreen 
+          brideName={settings.brideName} 
+          groomName={settings.groomName} 
+          onInteraction={() => {
+            // Synchronously pre-play and pause both audios on the first touch gesture to unblock browser autoplay restrictions!
+            if (audioRef.current) {
+              audioRef.current.play().then(() => {
+                audioRef.current.pause();
+                setAudioStarted(true);
+              }).catch(e => console.log("Pre-play music unblock failed:", e));
+            }
+            if (natureAudioRef.current) {
+              natureAudioRef.current.play().then(() => {
+                natureAudioRef.current.pause();
+              }).catch(e => console.log("Pre-play nature sound unblock failed:", e));
+            }
+          }}
+          onEnter={() => {
+            setIsPlaying(true);
+            setAudioStarted(true);
+            
+            let mainPlayPromise = Promise.resolve();
+            if (audioRef.current) {
+              mainPlayPromise = audioRef.current.play();
+            }
+
+            mainPlayPromise
+              .then(() => {
+                if (natureAudioRef.current) {
+                  natureAudioRef.current.play().catch(e => console.log("Nature sound play failed:", e));
+                }
+              })
+              .catch(e => {
+                console.log("Music blocked on auto-enter:", e);
+                setIsPlaying(false);
+                setAudioStarted(false);
+              });
+
+            setShowLoading(false);
+          }}
+        />
+      )}
+
       {/* Audio element for romance background soundtrack */}
       <audio ref={audioRef} loop />
 
@@ -608,11 +827,22 @@ function App() {
       {/* ========================================================================= */}
       <section className="scroll-snap-section relative min-h-screen flex flex-col items-center justify-center text-center px-4 md:px-8 py-16 overflow-hidden">
         
-        {/* Decorative Golden Floral Corners */}
-        <div className="absolute top-8 left-8 w-24 h-24 border-t-2 border-l-2 border-amber-400/30 rounded-tl-3xl pointer-events-none hidden md:block"></div>
-        <div className="absolute top-8 right-8 w-24 h-24 border-t-2 border-r-2 border-amber-400/30 rounded-tr-3xl pointer-events-none hidden md:block"></div>
-        <div className="absolute bottom-8 left-8 w-24 h-24 border-b-2 border-l-2 border-amber-400/30 rounded-bl-3xl pointer-events-none hidden md:block"></div>
-        <div className="absolute bottom-8 right-8 w-24 h-24 border-b-2 border-r-2 border-amber-400/30 rounded-br-3xl pointer-events-none hidden md:block"></div>
+        {/* Decorative Golden Floral Corners / Leafy Corner Frames */}
+        {settings.theme === 'flora' ? (
+          <>
+            <LeafCorner position="top-left" className="animate-pulse-slow text-[#5A7C54]/30" />
+            <LeafCorner position="top-right" className="animate-pulse-slow text-[#5A7C54]/30" />
+            <LeafCorner position="bottom-left" className="animate-pulse-slow text-[#5A7C54]/30" />
+            <LeafCorner position="bottom-right" className="animate-pulse-slow text-[#5A7C54]/30" />
+          </>
+        ) : (
+          <>
+            <div className="absolute top-8 left-8 w-24 h-24 border-t-2 border-l-2 border-amber-400/30 rounded-tl-3xl pointer-events-none hidden md:block"></div>
+            <div className="absolute top-8 right-8 w-24 h-24 border-t-2 border-r-2 border-amber-400/30 rounded-tr-3xl pointer-events-none hidden md:block"></div>
+            <div className="absolute bottom-8 left-8 w-24 h-24 border-b-2 border-l-2 border-amber-400/30 rounded-bl-3xl pointer-events-none hidden md:block"></div>
+            <div className="absolute bottom-8 right-8 w-24 h-24 border-b-2 border-r-2 border-amber-400/30 rounded-br-3xl pointer-events-none hidden md:block"></div>
+          </>
+        )}
 
         {/* Floating Top Monogram Badge */}
         <div className="w-20 h-20 rounded-full border-2 border-amber-400/50 flex items-center justify-center bg-stone-900/50 shadow-lg shadow-amber-400/10 mb-8 fade-in-up-1 relative group overflow-hidden">
@@ -646,10 +876,10 @@ function App() {
 
         {/* Wedding Date Display */}
         <div className="fade-in-up-5 space-y-3">
-          <p className={`font-serif text-xl md:text-2xl tracking-wide font-light ${settings.theme === 'goldLight' ? 'text-stone-800' : 'text-amber-100/90'}`}>
+          <p className={`font-serif text-xl md:text-2xl tracking-wide font-light ${isLight ? 'text-stone-800' : 'text-amber-100/90'}`}>
             {getFormattedDate()}
           </p>
-          <p className={`font-sans text-sm tracking-[0.2em] uppercase ${settings.theme === 'goldLight' ? 'text-[#b8953a]' : 'text-amber-400/80'}`}>
+          <p className={`font-sans text-sm tracking-[0.2em] uppercase ${settings.theme === 'flora' ? 'text-[#5A7C54]' : settings.theme === 'goldLight' ? 'text-[#b8953a]' : 'text-amber-400/80'}`}>
             At {getFormattedTime()} • {settings.venueName}
           </p>
         </div>
@@ -696,13 +926,19 @@ function App() {
         
         {/* Soft elegant background graphics */}
         <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] opacity-60"></div>
+        {settings.theme === 'flora' && (
+          <>
+            <LeafCorner position="top-left" className="opacity-45 text-[#5A7C54]/30" />
+            <LeafCorner position="bottom-right" className="opacity-45 text-[#5A7C54]/30" />
+          </>
+        )}
 
         <div className="max-w-6xl mx-auto relative z-10 flex flex-col lg:flex-row items-center gap-8 sm:gap-12 lg:gap-16 w-full">
           
           {/* LEFT COLUMN: The Personal Card */}
           <div className="w-full lg:w-1/2 space-y-6 sm:space-y-8 text-center lg:text-left">
             
-            <span className={`font-serif text-xs sm:text-sm uppercase tracking-[0.2em] font-semibold block ${settings.theme === 'emerald' ? 'text-emerald-800' : 'text-[#b8953a]'}`}>
+            <span className={`font-serif text-xs sm:text-sm uppercase tracking-[0.2em] font-semibold block ${settings.theme === 'emerald' ? 'text-emerald-800' : settings.theme === 'flora' ? 'text-[#5A7C54]' : 'text-[#b8953a]'}`}>
               We Request the Honor of Your Presence
             </span>
 
@@ -807,6 +1043,12 @@ function App() {
         
         {/* Soft background glow */}
         <div className="absolute inset-0 bg-radial-gradient(ellipse_at_center,_var(--tw-gradient-stops)) from-amber-500/5 via-transparent to-transparent opacity-50 pointer-events-none"></div>
+        {settings.theme === 'flora' && (
+          <>
+            <LeafCorner position="top-right" className="opacity-45 text-[#5A7C54]/25" />
+            <LeafCorner position="bottom-left" className="opacity-45 text-[#5A7C54]/25" />
+          </>
+        )}
 
         <div className="max-w-4xl mx-auto relative z-10 space-y-8">
           
@@ -816,13 +1058,13 @@ function App() {
 
           {/* Countdown Header with elegant curved flourish */}
           <div className="space-y-4">
-            <h2 className={`font-cursive text-5xl md:text-7xl leading-tight ${settings.theme === 'goldLight' ? 'text-stone-800' : 'text-amber-100'}`}>
-              Counting Down to <span className="text-amber-500 underline decoration-amber-500/40 decoration-wavy decoration-1 underline-offset-8">Forever</span>
+            <h2 className={`font-cursive text-5xl md:text-7xl leading-tight ${isLight ? 'text-stone-800' : 'text-amber-100'}`}>
+              Counting Down to <span className={`${settings.theme === 'flora' ? 'text-[#5A7C54] decoration-[#5A7C54]/40' : 'text-amber-500 decoration-amber-500/40'} underline decoration-wavy decoration-1 underline-offset-8`}>Forever</span>
             </h2>
-            <div className="h-[1px] w-48 bg-gradient-to-r from-transparent via-amber-400/40 to-transparent mx-auto"></div>
+            <div className={`h-[1px] w-48 bg-gradient-to-r from-transparent ${settings.theme === 'flora' ? 'via-[#5A7C54]/40' : 'via-amber-400/40'} to-transparent mx-auto`}></div>
           </div>
 
-          <p className={`font-sans text-sm md:text-base max-w-xl mx-auto leading-relaxed ${settings.theme === 'goldLight' ? 'text-stone-600' : 'text-amber-100/70'}`}>
+          <p className={`font-sans text-sm md:text-base max-w-xl mx-auto leading-relaxed ${isLight ? 'text-stone-600' : 'text-amber-100/70'}`}>
             Every second brings us closer to the moment we walk down the aisle together. We cannot wait to share this beautiful milestone with you.
           </p>
 
@@ -831,40 +1073,40 @@ function App() {
             
             {/* Days */}
             <div className={`p-6 rounded-2xl backdrop-blur-md ${currentTheme.cardBg} transition-all duration-300 hover:scale-105 ${currentTheme.glow}`}>
-              <span className="block font-serif text-5xl md:text-6xl text-amber-500 font-light tracking-wide animate-pulse-slow">
+              <span className={`block font-serif text-5xl md:text-6xl font-light tracking-wide animate-pulse-slow ${settings.theme === 'flora' ? 'text-[#5A7C54]' : 'text-amber-500'}`}>
                 {String(timeLeft.days).padStart(2, '0')}
               </span>
-              <span className={`block text-xs uppercase tracking-widest font-semibold mt-3 ${settings.theme === 'goldLight' ? 'text-stone-500' : 'text-amber-200/50'}`}>
+              <span className={`block text-xs uppercase tracking-widest font-semibold mt-3 ${isLight ? 'text-stone-500' : 'text-amber-200/50'}`}>
                 Days
               </span>
             </div>
 
             {/* Hours */}
             <div className={`p-6 rounded-2xl backdrop-blur-md ${currentTheme.cardBg} transition-all duration-300 hover:scale-105 ${currentTheme.glow}`}>
-              <span className="block font-serif text-5xl md:text-6xl text-amber-500 font-light tracking-wide">
+              <span className={`block font-serif text-5xl md:text-6xl font-light tracking-wide ${settings.theme === 'flora' ? 'text-[#5A7C54]' : 'text-amber-500'}`}>
                 {String(timeLeft.hours).padStart(2, '0')}
               </span>
-              <span className={`block text-xs uppercase tracking-widest font-semibold mt-3 ${settings.theme === 'goldLight' ? 'text-stone-500' : 'text-amber-200/50'}`}>
+              <span className={`block text-xs uppercase tracking-widest font-semibold mt-3 ${isLight ? 'text-stone-500' : 'text-amber-200/50'}`}>
                 Hours
               </span>
             </div>
 
             {/* Minutes */}
             <div className={`p-6 rounded-2xl backdrop-blur-md ${currentTheme.cardBg} transition-all duration-300 hover:scale-105 ${currentTheme.glow}`}>
-              <span className="block font-serif text-5xl md:text-6xl text-amber-500 font-light tracking-wide">
+              <span className={`block font-serif text-5xl md:text-6xl font-light tracking-wide ${settings.theme === 'flora' ? 'text-[#5A7C54]' : 'text-amber-500'}`}>
                 {String(timeLeft.minutes).padStart(2, '0')}
               </span>
-              <span className={`block text-xs uppercase tracking-widest font-semibold mt-3 ${settings.theme === 'goldLight' ? 'text-stone-500' : 'text-amber-200/50'}`}>
+              <span className={`block text-xs uppercase tracking-widest font-semibold mt-3 ${isLight ? 'text-stone-500' : 'text-amber-200/50'}`}>
                 Minutes
               </span>
             </div>
 
             {/* Seconds */}
             <div className={`p-6 rounded-2xl backdrop-blur-md ${currentTheme.cardBg} transition-all duration-300 hover:scale-105 ${currentTheme.glow}`}>
-              <span className="block font-serif text-5xl md:text-6xl text-amber-500 font-light tracking-wide">
+              <span className={`block font-serif text-5xl md:text-6xl font-light tracking-wide ${settings.theme === 'flora' ? 'text-[#5A7C54]' : 'text-amber-500'}`}>
                 {String(timeLeft.seconds).padStart(2, '0')}
               </span>
-              <span className={`block text-xs uppercase tracking-widest font-semibold mt-3 ${settings.theme === 'goldLight' ? 'text-stone-500' : 'text-amber-200/50'}`}>
+              <span className={`block text-xs uppercase tracking-widest font-semibold mt-3 ${isLight ? 'text-stone-500' : 'text-amber-200/50'}`}>
                 Seconds
               </span>
             </div>
@@ -872,7 +1114,7 @@ function App() {
           </div>
 
           {/* Quick countdown footer */}
-          <p className="font-cursive text-2xl text-amber-400/90 pt-4">
+          <p className={`font-cursive text-2xl pt-4 ${settings.theme === 'flora' ? 'text-[#5A7C54]/95' : 'text-amber-400/90'}`}>
             ...until we say "I Do"
           </p>
 
@@ -887,17 +1129,23 @@ function App() {
         
         {/* Soft Background Grid */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#f3f4f6_1px,transparent_1px),linear-gradient(to_bottom,#f3f4f6_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]"></div>
+        {settings.theme === 'flora' && (
+          <>
+            <LeafCorner position="top-left" className="opacity-45 text-[#5A7C54]/25" />
+            <LeafCorner position="bottom-right" className="opacity-45 text-[#5A7C54]/25" />
+          </>
+        )}
 
         <div className="max-w-5xl mx-auto relative z-10">
           
           <div className="text-center space-y-4 mb-16">
-            <span className={`font-serif text-sm uppercase tracking-[0.2em] font-semibold ${settings.theme === 'emerald' ? 'text-emerald-800' : 'text-[#b8953a]'}`}>
+            <span className={`font-serif text-sm uppercase tracking-[0.2em] font-semibold ${settings.theme === 'emerald' ? 'text-emerald-800' : settings.theme === 'flora' ? 'text-[#5A7C54]' : 'text-[#b8953a]'}`}>
               The Celebration Place
             </span>
             <h2 className="font-serif text-4xl md:text-5xl text-stone-800 font-medium">
               Venue & Timing
             </h2>
-            <div className="h-[2px] w-24 bg-amber-500 mx-auto"></div>
+            <div className={`h-[2px] w-24 mx-auto ${settings.theme === 'flora' ? 'bg-[#5A7C54]' : 'bg-amber-500'}`}></div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -907,7 +1155,7 @@ function App() {
               
               {/* Palace Icon Banner */}
               <div className="flex items-center gap-4 border-b border-stone-200/60 pb-6">
-                <div className="w-14 h-14 bg-amber-500/10 rounded-full flex items-center justify-center text-amber-600 text-2xl shadow-inner">
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-inner ${settings.theme === 'flora' ? 'bg-[#5A7C54]/10 text-[#5A7C54]' : 'bg-amber-500/10 text-amber-600'}`}>
                   <i className="fa-solid fa-hotel"></i>
                 </div>
                 <div>
@@ -925,7 +1173,7 @@ function App() {
                 
                 {/* Date Row */}
                 <div className="flex items-start gap-4">
-                  <div className="text-amber-500 text-lg mt-1 w-6">
+                  <div className={`text-lg mt-1 w-6 ${settings.theme === 'flora' ? 'text-[#5A7C54]' : 'text-amber-500'}`}>
                     <i className="fa-solid fa-calendar-days"></i>
                   </div>
                   <div>
@@ -940,7 +1188,7 @@ function App() {
 
                 {/* Time Row */}
                 <div className="flex items-start gap-4">
-                  <div className="text-amber-500 text-lg mt-1 w-6">
+                  <div className={`text-lg mt-1 w-6 ${settings.theme === 'flora' ? 'text-[#5A7C54]' : 'text-amber-500'}`}>
                     <i className="fa-solid fa-clock"></i>
                   </div>
                   <div>
@@ -955,7 +1203,7 @@ function App() {
 
                 {/* Dress Code Row */}
                 <div className="flex items-start gap-4">
-                  <div className="text-amber-500 text-lg mt-1 w-6">
+                  <div className={`text-lg mt-1 w-6 ${settings.theme === 'flora' ? 'text-[#5A7C54]' : 'text-amber-500'}`}>
                     <i className="fa-solid fa-shirt"></i>
                   </div>
                   <div>
@@ -976,7 +1224,11 @@ function App() {
                   href={settings.venueGoogleLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-3 px-6 py-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg shadow-amber-500/20 hover:shadow-xl hover:shadow-amber-500/35 transition-all duration-300 hover:scale-[1.02]"
+                  className={`w-full inline-flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-semibold shadow-lg transition-all duration-300 hover:scale-[1.02] ${
+                    settings.theme === 'flora' 
+                      ? 'bg-gradient-to-r from-[#5A7C54] to-[#7FA478] hover:from-[#415C3C] hover:to-[#5A7C54] text-white shadow-[#5A7C54]/20 hover:shadow-[#5A7C54]/35' 
+                      : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/20 hover:shadow-amber-500/35'
+                  }`}
                 >
                   <i className="fa-solid fa-map-location-dot text-lg"></i>
                   Navigate via Google Maps
@@ -1030,26 +1282,35 @@ function App() {
       <section id="rsvp" className="scroll-snap-section relative min-h-screen flex flex-col justify-center py-24 px-4 md:px-8 bg-stone-50 border-t border-b border-stone-200 overflow-hidden">
         
         {/* Decorative corner leaves */}
-        <div className="absolute top-0 left-0 w-32 h-32 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.1),transparent_70%)] pointer-events-none"></div>
-        <div className="absolute bottom-0 right-0 w-32 h-32 bg-[radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.1),transparent_70%)] pointer-events-none"></div>
+        {settings.theme === 'flora' ? (
+          <>
+            <LeafCorner position="top-left" className="opacity-45 text-[#5A7C54]/30" />
+            <LeafCorner position="bottom-right" className="opacity-45 text-[#5A7C54]/30" />
+          </>
+        ) : (
+          <>
+            <div className="absolute top-0 left-0 w-32 h-32 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.1),transparent_70%)] pointer-events-none"></div>
+            <div className="absolute bottom-0 right-0 w-32 h-32 bg-[radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.1),transparent_70%)] pointer-events-none"></div>
+          </>
+        )}
 
         <div className="max-w-3xl mx-auto relative z-10">
           
           <div className="text-center space-y-4 mb-16">
-            <span className={`font-serif text-sm uppercase tracking-[0.2em] font-semibold ${settings.theme === 'emerald' ? 'text-emerald-800' : 'text-[#b8953a]'}`}>
+            <span className={`font-serif text-sm uppercase tracking-[0.2em] font-semibold ${settings.theme === 'emerald' ? 'text-emerald-800' : settings.theme === 'flora' ? 'text-[#5A7C54]' : 'text-[#b8953a]'}`}>
               Kindly Respond by May 15, 2026
             </span>
             <h2 className="font-serif text-4xl md:text-5xl text-stone-800 font-medium">
               R. S. V. P.
             </h2>
-            <div className="h-[2px] w-24 bg-amber-500 mx-auto"></div>
+            <div className={`h-[2px] w-24 mx-auto ${settings.theme === 'flora' ? 'bg-[#5A7C54]' : 'bg-amber-500'}`}></div>
           </div>
 
           {/* RSVP CARD CONTAINER */}
-          <div className="bg-white border-2 border-double border-amber-500/30 p-8 md:p-12 rounded-3xl shadow-2xl relative overflow-hidden transition-all duration-300 hover:shadow-amber-500/5">
+          <div className={`bg-white border-2 border-double p-8 md:p-12 rounded-3xl shadow-2xl relative overflow-hidden transition-all duration-300 hover:shadow-amber-500/5 ${settings.theme === 'flora' ? 'border-[#5A7C54]/30' : 'border-amber-500/30'}`}>
             
             {/* Decorative embossed card header */}
-            <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500"></div>
+            <div className={`absolute top-0 inset-x-0 h-2 bg-gradient-to-r ${settings.theme === 'flora' ? 'from-[#5A7C54] via-[#7FA478] to-[#5A7C54]' : 'from-amber-500 via-yellow-400 to-amber-500'}`}></div>
 
             {rsvpSubmitted ? (
               
@@ -1224,17 +1485,22 @@ function App() {
       {/* 6. BEST WISHES & GUEST BOOK BOARD SECTION                                 */}
       {/* ========================================================================= */}
       <section className="scroll-snap-section relative min-h-screen flex flex-col justify-center py-24 px-4 md:px-8 bg-stone-100 text-stone-900 overflow-hidden">
-        
+        {settings.theme === 'flora' && (
+          <>
+            <LeafCorner position="top-right" className="opacity-45 text-[#5A7C54]/25" />
+            <LeafCorner position="bottom-left" className="opacity-45 text-[#5A7C54]/25" />
+          </>
+        )}
         <div className="max-w-6xl mx-auto relative z-10">
           
           <div className="text-center space-y-4 mb-16">
-            <span className={`font-serif text-sm uppercase tracking-[0.2em] font-semibold ${settings.theme === 'emerald' ? 'text-emerald-800' : 'text-[#b8953a]'}`}>
+            <span className={`font-serif text-sm uppercase tracking-[0.2em] font-semibold ${settings.theme === 'emerald' ? 'text-emerald-800' : settings.theme === 'flora' ? 'text-[#5A7C54]' : 'text-[#b8953a]'}`}>
               The Guest Book
             </span>
             <h2 className="font-serif text-4xl md:text-5xl text-stone-800 font-medium">
               Best Wishes Wall
             </h2>
-            <div className="h-[2px] w-24 bg-amber-500 mx-auto"></div>
+            <div className={`h-[2px] w-24 mx-auto ${settings.theme === 'flora' ? 'bg-[#5A7C54]' : 'bg-amber-500'}`}></div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
@@ -1358,56 +1624,78 @@ function App() {
       {/* 7. FOOTER SECTION                                                         */}
       {/* ========================================================================= */}
       <footer className={`scroll-snap-section relative min-h-screen flex flex-col justify-center py-16 px-4 md:px-8 text-center bg-gradient-to-b ${currentTheme.bgGradient} border-t border-amber-500/10 overflow-hidden`}>
-        
-        {/* Soft Background Double Interlocking Golden Wedding Rings */}
+        {settings.theme === 'flora' && (
+          <>
+            <LeafCorner position="top-left" className="opacity-45 text-[#5A7C54]/25" />
+            <LeafCorner position="top-right" className="opacity-45 text-[#5A7C54]/25" />
+          </>
+        )}
+        {/* Soft Background Double Interlocking Golden Wedding Rings / Large Leafy Wreath */}
         <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none select-none">
-          <div className="relative w-64 h-64 flex items-center justify-center">
-            <i className="fa-solid fa-ring text-[180px] text-amber-500/15 absolute -translate-x-12 rotate-[-12deg] animate-pulse-slow"></i>
-            <i className="fa-solid fa-ring text-[180px] text-amber-500/15 absolute translate-x-12 rotate-[12deg] animate-pulse-slow"></i>
-          </div>
+          {settings.theme === 'flora' ? (
+            <svg className="w-80 h-80 text-[#5A7C54]/15 animate-pulse-slow" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M45 80 C20 70, 20 30, 45 20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 3"/>
+              <circle cx="30" cy="50" r="3" fill="currentColor"/>
+              <circle cx="34" cy="38" r="3" fill="currentColor"/>
+              <circle cx="34" cy="62" r="3" fill="currentColor"/>
+              <circle cx="41" cy="27" r="3" fill="currentColor"/>
+              <circle cx="41" cy="73" r="3" fill="currentColor"/>
+              <path d="M55 80 C80 70, 80 30, 55 20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 3"/>
+              <circle cx="70" cy="50" r="3" fill="currentColor"/>
+              <circle cx="66" cy="38" r="3" fill="currentColor"/>
+              <circle cx="66" cy="62" r="3" fill="currentColor"/>
+              <circle cx="59" cy="27" r="3" fill="currentColor"/>
+              <circle cx="59" cy="73" r="3" fill="currentColor"/>
+            </svg>
+          ) : (
+            <div className="relative w-64 h-64 flex items-center justify-center">
+              <i className="fa-solid fa-ring text-[180px] text-amber-500/15 absolute -translate-x-12 rotate-[-12deg] animate-pulse-slow"></i>
+              <i className="fa-solid fa-ring text-[180px] text-amber-500/15 absolute translate-x-12 rotate-[12deg] animate-pulse-slow"></i>
+            </div>
+          )}
         </div>
 
         <div className="max-w-4xl mx-auto relative z-10 space-y-8 select-none flex flex-col items-center justify-center">
           
           {/* Regal Interlocking Gold Monogram Emblem / Wax Seal */}
-          <div className="w-28 h-28 rounded-full border-4 border-double border-amber-500/40 flex items-center justify-center bg-stone-950/20 shadow-2xl shadow-amber-500/5 group hover:border-amber-400 hover:scale-105 transition-all duration-500 relative">
-            <div className="absolute inset-1 rounded-full border border-amber-500/20 animate-spin-slow"></div>
-            <span className="font-serif text-3xl font-extrabold tracking-widest text-amber-400 drop-shadow-md select-none">
+          <div className={`w-28 h-28 rounded-full border-4 border-double flex items-center justify-center bg-stone-950/20 shadow-2xl group hover:scale-105 transition-all duration-500 relative ${settings.theme === 'flora' ? 'border-[#5A7C54]/40 hover:border-[#5A7C54] shadow-[#5A7C54]/5' : 'border-amber-500/40 hover:border-amber-400 shadow-amber-500/5'}`}>
+            <div className={`absolute inset-1 rounded-full border animate-spin-slow ${settings.theme === 'flora' ? 'border-[#5A7C54]/20' : 'border-amber-500/20'}`}></div>
+            <span className={`font-serif text-3xl font-extrabold tracking-widest drop-shadow-md select-none ${settings.theme === 'flora' ? 'text-[#5A7C54]' : 'text-amber-400'}`}>
               {settings.brideName.charAt(0)}&{settings.groomName.charAt(0)}
             </span>
           </div>
 
           <div className="space-y-4">
-            <h2 className="font-cursive text-6xl md:text-7xl text-amber-400 leading-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)] animate-gold-glow">
+            <h2 className={`font-cursive text-6xl md:text-7xl leading-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)] ${settings.theme === 'flora' ? 'text-[#5A7C54]' : 'text-amber-400 animate-gold-glow'}`}>
               {settings.brideName} & {settings.groomName}
             </h2>
-            <div className="h-[1px] w-32 bg-gradient-to-r from-transparent via-amber-500/40 to-transparent mx-auto"></div>
+            <div className={`h-[1px] w-32 mx-auto bg-gradient-to-r from-transparent ${settings.theme === 'flora' ? 'via-[#5A7C54]/40' : 'via-amber-500/40'} to-transparent`}></div>
           </div>
 
           <div className="space-y-3 max-w-lg">
-            <p className="font-pinyon text-3xl text-amber-500/90 italic tracking-wider">
+            <p className={`font-pinyon text-3xl italic tracking-wider ${settings.theme === 'flora' ? 'text-[#5A7C54]/90' : 'text-amber-500/90'}`}>
               "Forever begins today..."
             </p>
-            <p className={`font-serif text-sm tracking-[0.15em] uppercase leading-relaxed ${settings.theme === 'goldLight' ? 'text-stone-700' : 'text-amber-100/70'}`}>
+            <p className={`font-serif text-sm tracking-[0.15em] uppercase leading-relaxed ${isLight ? 'text-stone-700' : 'text-amber-100/70'}`}>
               Thank you for being a part of our beautiful beginning and sharing in our celebration of love.
             </p>
           </div>
 
           {/* Elegant Leafy Vector Divider */}
           <div className="flex items-center justify-center gap-3 py-2">
-            <div className="h-[1px] w-12 bg-gradient-to-r from-transparent via-amber-500/30 to-transparent"></div>
-            <i className="fa-solid fa-leaf text-amber-500/40 text-xs"></i>
-            <div className="h-[1px] w-12 bg-gradient-to-l from-transparent via-amber-500/30 to-transparent"></div>
+            <div className={`h-[1px] w-12 bg-gradient-to-r from-transparent ${settings.theme === 'flora' ? 'via-[#5A7C54]/30' : 'via-amber-500/30'} to-transparent`}></div>
+            <i className={`fa-solid fa-leaf text-xs ${settings.theme === 'flora' ? 'text-[#5A7C54]/60' : 'text-amber-500/40'}`}></i>
+            <div className={`h-[1px] w-12 bg-gradient-to-l from-transparent ${settings.theme === 'flora' ? 'via-[#5A7C54]/30' : 'via-amber-500/30'} to-transparent`}></div>
           </div>
 
           {/* Navigation link triggers inside footer */}
           <div className="flex justify-center gap-6 text-xs uppercase tracking-widest font-semibold pb-4">
-            <a href="#invitation" className={`hover:text-amber-500 transition-colors duration-300 ${settings.theme === 'goldLight' ? 'text-stone-500' : 'text-stone-400'}`}>Welcome</a>
-            <a href="#details" className={`hover:text-amber-500 transition-colors duration-300 ${settings.theme === 'goldLight' ? 'text-stone-500' : 'text-stone-400'}`}>Venue</a>
-            <a href="#rsvp" className={`hover:text-amber-500 transition-colors duration-300 ${settings.theme === 'goldLight' ? 'text-stone-500' : 'text-stone-400'}`}>R.S.V.P.</a>
+            <a href="#invitation" className={`transition-colors duration-300 ${settings.theme === 'flora' ? 'hover:text-[#5A7C54]/80 text-stone-500' : isLight ? 'hover:text-amber-500 text-stone-500' : 'hover:text-amber-500 text-stone-400'}`}>Welcome</a>
+            <a href="#details" className={`transition-colors duration-300 ${settings.theme === 'flora' ? 'hover:text-[#5A7C54]/80 text-stone-500' : isLight ? 'hover:text-amber-500 text-stone-500' : 'hover:text-amber-500 text-stone-400'}`}>Venue</a>
+            <a href="#rsvp" className={`transition-colors duration-300 ${settings.theme === 'flora' ? 'hover:text-[#5A7C54]/80 text-stone-500' : isLight ? 'hover:text-amber-500 text-stone-500' : 'hover:text-amber-500 text-stone-400'}`}>R.S.V.P.</a>
           </div>
 
-          <p className={`font-sans text-[10px] uppercase tracking-[0.2em] pt-4 border-t border-amber-500/10 w-full ${settings.theme === 'goldLight' ? 'text-stone-400' : 'text-amber-100/30'}`}>
+          <p className={`font-sans text-[10px] uppercase tracking-[0.2em] pt-4 border-t w-full ${settings.theme === 'flora' ? 'border-[#5A7C54]/10 text-stone-400' : 'border-amber-500/10 text-amber-100/30'} ${isLight ? 'text-stone-400' : 'text-amber-100/30'}`}>
             © 2026 Digital Invitation • Designed with Pure Elegance
           </p>
 
@@ -1623,14 +1911,16 @@ function App() {
                           key === 'goldDark' ? 'bg-stone-950' :
                           key === 'emerald' ? 'bg-emerald-800' :
                           key === 'crimson' ? 'bg-rose-900' :
-                          key === 'sapphire' ? 'bg-blue-900' : 'bg-pink-900'
+                          key === 'sapphire' ? 'bg-blue-900' :
+                          key === 'flora' ? 'bg-[#E8ECE7]' : 'bg-pink-900'
                         }`}></div>
                         <div className={`w-3.5 h-3.5 rounded-full ${
                           key === 'goldLight' ? 'bg-[#b8953a]' :
                           key === 'goldDark' ? 'bg-[#e5c158]' :
                           key === 'emerald' ? 'bg-amber-400' :
                           key === 'crimson' ? 'bg-yellow-400' :
-                          key === 'sapphire' ? 'bg-amber-300' : 'bg-yellow-200'
+                          key === 'sapphire' ? 'bg-amber-300' :
+                          key === 'flora' ? 'bg-[#5A7C54]' : 'bg-yellow-200'
                         }`}></div>
                       </div>
                     </button>
