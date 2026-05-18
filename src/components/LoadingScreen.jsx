@@ -248,14 +248,14 @@ function LoadingScreen({ brideName, groomName, onEnter, onInteraction }) {
           <div className="pr-6 text-right max-w-[240px] float-slow-content">
             <div className="w-14 h-14 rounded-full border border-amber-500/25 flex items-center justify-end pr-3 bg-stone-950/60 shadow-lg shadow-amber-500/5 ml-auto mb-6 relative overflow-hidden">
               <span className="font-serif text-lg font-bold tracking-wider text-amber-400">
-                {brideName ? brideName.charAt(0) : 'B'}
+                {brideName ? brideName.charAt(0) : ''}
               </span>
             </div>
             <p className="font-serif text-[9px] uppercase tracking-[0.35em] text-amber-500/80 mb-2">
               Warmly
             </p>
             <h2 className="font-serif text-xl sm:text-2xl text-amber-100 font-light truncate drop-shadow-md">
-              {brideName || 'Bride'}
+              {brideName}
             </h2>
           </div>
         </div>
@@ -274,14 +274,14 @@ function LoadingScreen({ brideName, groomName, onEnter, onInteraction }) {
           <div className="pl-6 text-left max-w-[240px] float-slow-content">
             <div className="w-14 h-14 rounded-full border border-amber-500/25 flex items-center justify-start pl-3 bg-stone-950/60 shadow-lg shadow-amber-500/5 mb-6 relative overflow-hidden">
               <span className="font-serif text-lg font-bold tracking-wider text-amber-400">
-                {groomName ? groomName.charAt(0) : 'G'}
+                {groomName ? groomName.charAt(0) : ''}
               </span>
             </div>
             <p className="font-serif text-[9px] uppercase tracking-[0.35em] text-amber-500/80 mb-2">
               Invited
             </p>
             <h2 className="font-serif text-xl sm:text-2xl text-amber-100 font-light truncate drop-shadow-md">
-              {groomName || 'Groom'}
+              {groomName}
             </h2>
           </div>
         </div>

@@ -868,8 +868,8 @@ function App() {
       
       {showLoading && (
         <LoadingScreen 
-          brideName={settings.brideName && settings.brideName.trim() ? settings.brideName.trim() : 'Bride'} 
-          groomName={settings.groomName && settings.groomName.trim() ? settings.groomName.trim() : 'Groom'} 
+          brideName={settings.brideName} 
+          groomName={settings.groomName} 
           onInteraction={() => {
             // Synchronously pre-play and pause both audios on the first touch gesture to unblock browser autoplay restrictions!
             if (audioRef.current) {
@@ -1037,7 +1037,7 @@ function App() {
           <h1 className={`font-cursive text-7xl md:text-9xl leading-tight drop-shadow-[0_4px_6px_rgba(0,0,0,0.15)] fade-in-up-2 ${
             settings.theme === 'flora' ? 'text-[#5A7C54]' : settings.theme === 'goldLight' ? 'text-[#b8953a]' : 'text-amber-400 animate-gold-glow'
           }`}>
-            {settings.brideName && settings.brideName.trim() ? settings.brideName.trim() : 'Bride'}
+            {settings.brideName}
           </h1>
           <div className="flex items-center justify-center gap-6 fade-in-up-3">
             <div className={`h-[1px] w-20 bg-gradient-to-r from-transparent ${
@@ -1053,7 +1053,7 @@ function App() {
           <h1 className={`font-cursive text-7xl md:text-9xl leading-tight drop-shadow-[0_4px_6px_rgba(0,0,0,0.15)] fade-in-up-4 ${
             settings.theme === 'flora' ? 'text-[#5A7C54]' : settings.theme === 'goldLight' ? 'text-[#b8953a]' : 'text-amber-400 animate-gold-glow'
           }`}>
-            {settings.groomName && settings.groomName.trim() ? settings.groomName.trim() : 'Groom'}
+            {settings.groomName}
           </h1>
         </div>
 
