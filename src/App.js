@@ -154,14 +154,34 @@ const themes = {
     darkMuted: 'bg-emerald-50',
     polaroidBg: 'bg-white text-stone-800 border border-emerald-100 shadow-xl',
     dividerColor: 'from-transparent via-[#5A7C54]/40 to-transparent'
+  },
+  custom: {
+    name: 'Custom Palette',
+    bgGradient: 'from-stone-950 via-stone-900 to-stone-950',
+    primary: 'custom',
+    text: 'text-stone-100',
+    accent: 'text-[var(--custom-accent)]',
+    accentHover: 'hover:text-[var(--custom-accent-hover)]',
+    accentBg: 'bg-[var(--custom-primary)]',
+    accentBgHover: 'hover:bg-[var(--custom-primary-hover)]',
+    accentBorder: 'border-[var(--custom-primary)]',
+    accentBorderMuted: 'border-[var(--custom-primary)]/30',
+    glow: 'shadow-[var(--custom-primary)]/10',
+    btnBg: 'bg-stone-900/60 hover:bg-stone-800/80 border border-[var(--custom-primary)]/40 text-stone-100',
+    btnAccent: 'bg-gradient-to-r from-[var(--custom-primary)] to-[var(--custom-accent)] text-stone-950 font-bold shadow-lg shadow-[var(--custom-primary)]/20',
+    cardBg: 'bg-stone-900/90 border border-[var(--custom-primary)]/20 text-stone-100',
+    textMuted: 'text-stone-300/70',
+    darkMuted: 'bg-stone-950/60',
+    polaroidBg: 'bg-stone-900 text-stone-100 border border-[var(--custom-primary)]/10 shadow-xl',
+    dividerColor: 'from-transparent via-[var(--custom-primary)]/40 to-transparent'
   }
 };
 
 function App() {
   // --- STATE FOR WEB SITE CUSTOMIZATION ---
   const [settings, setSettings] = useState({
-    brideName: 'Niwarthana',
-    groomName: 'Thenuka',
+    brideName: '',
+    groomName: '',
     weddingDate: '2026-05-25T15:30:00',
     venueName: 'Saminro Grand Palace',
     venueAddress: 'Veyangoda, Sri Lanka',
@@ -170,7 +190,9 @@ function App() {
     guestName: 'Mr. / Mr. & Mrs. / Ms. / Family',
     coupleOutdoorImg: 'images/couple_outdoor.png',
     couplePortraitImg: 'images/couple_portrait.png',
-    bgMusicUrl: 'https://www.chosic.com/wp-content/uploads/2021/07/In-love-again.mp3'
+    bgMusicUrl: 'https://www.chosic.com/wp-content/uploads/2021/07/In-love-again.mp3',
+    customColorPrimary: '#5a7c54',
+    customColorSecondary: '#b8953a'
   });
 
   // Sidebar / panel controls
@@ -329,8 +351,8 @@ function App() {
         setTempSettings(prev => ({ ...prev, ...cloudData, guestName: urlSettings.guestName || cloudData.guestName || prev.guestName }));
       } else {
         const initialDefault = {
-          brideName: 'Niwarthana',
-          groomName: 'Thenuka',
+          brideName: '',
+          groomName: '',
           weddingDate: '2026-05-25T15:30:00',
           venueName: 'Saminro Grand Palace',
           venueAddress: 'Veyangoda, Sri Lanka',
@@ -339,7 +361,9 @@ function App() {
           guestName: 'Mr. / Mr. & Mrs. / Ms. / Family',
           coupleOutdoorImg: 'images/couple_outdoor.png',
           couplePortraitImg: 'images/couple_portrait.png',
-          bgMusicUrl: 'https://www.chosic.com/wp-content/uploads/2021/07/In-love-again.mp3'
+          bgMusicUrl: 'https://www.chosic.com/wp-content/uploads/2021/07/In-love-again.mp3',
+          customColorPrimary: '#5a7c54',
+          customColorSecondary: '#b8953a'
         };
         setDoc(doc(db, "wedding", "settings"), initialDefault)
           .catch(e => console.log("Failed to seed initial Firestore settings:", e));
@@ -631,8 +655,8 @@ function App() {
 
   const handleResetSettings = async () => {
     const defaultSettings = {
-      brideName: 'Niwarthana',
-      groomName: 'Thenuka',
+      brideName: '',
+      groomName: '',
       weddingDate: '2026-05-25T15:30:00',
       venueName: 'Saminro Grand Palace',
       venueAddress: 'Veyangoda, Sri Lanka',
@@ -641,7 +665,9 @@ function App() {
       guestName: 'Mr. / Mr. & Mrs. / Ms. / Family',
       coupleOutdoorImg: 'images/couple_outdoor.png',
       couplePortraitImg: 'images/couple_portrait.png',
-      bgMusicUrl: 'https://www.chosic.com/wp-content/uploads/2021/07/In-love-again.mp3'
+      bgMusicUrl: 'https://www.chosic.com/wp-content/uploads/2021/07/In-love-again.mp3',
+      customColorPrimary: '#5a7c54',
+      customColorSecondary: '#b8953a'
     };
     try {
       await setDoc(doc(db, "wedding", "settings"), defaultSettings);
@@ -686,8 +712,8 @@ function App() {
 
   const currentTheme = themes[settings.theme] || themes.emerald;
   const isLight = settings.theme === 'goldLight' || settings.theme === 'flora';
-  const brideInitial = settings.brideName ? settings.brideName.charAt(0) : 'N';
-  const groomInitial = settings.groomName ? settings.groomName.charAt(0) : 'T';
+  const brideInitial = settings.brideName ? settings.brideName.charAt(0) : 'B';
+  const groomInitial = settings.groomName ? settings.groomName.charAt(0) : 'G';
 
   // Format Date beautifully
   const getFormattedDate = () => {
@@ -806,6 +832,17 @@ function App() {
 
   return (
     <div className={`scroll-snap-container bg-gradient-to-b ${currentTheme.bgGradient} ${currentTheme.text} font-sans relative transition-colors duration-1000`}>
+      {/* Dynamic Custom Theme Style Override Injector */}
+      {settings.theme === 'custom' && (
+        <style dangerouslySetInnerHTML={{ __html: `
+          :root {
+            --custom-primary: ${settings.customColorPrimary || '#5a7c54'};
+            --custom-accent: ${settings.customColorSecondary || '#b8953a'};
+            --custom-primary-hover: ${settings.customColorPrimary || '#5a7c54'}dd;
+            --custom-accent-hover: ${settings.customColorSecondary || '#b8953a'}dd;
+          }
+        `}} />
+      )}
       
       {showLoading && (
         <LoadingScreen 
@@ -956,7 +993,7 @@ function App() {
         {/* Large Elegant Couple Names */}
         <div className="space-y-4 max-w-4xl px-4 select-none mb-6">
           <h1 className="font-cursive text-7xl md:text-9xl text-amber-400 leading-tight drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)] animate-gold-glow fade-in-up-2">
-            {settings.brideName}
+            {settings.brideName || 'Bride'}
           </h1>
           <div className="flex items-center justify-center gap-6 fade-in-up-3">
             <div className="h-[1px] w-20 bg-gradient-to-r from-transparent to-amber-400/40"></div>
@@ -964,7 +1001,7 @@ function App() {
             <div className="h-[1px] w-20 bg-gradient-to-l from-transparent to-amber-400/40"></div>
           </div>
           <h1 className="font-cursive text-7xl md:text-9xl text-amber-400 leading-tight drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)] animate-gold-glow fade-in-up-4">
-            {settings.groomName}
+            {settings.groomName || 'Groom'}
           </h1>
         </div>
 
@@ -1757,13 +1794,13 @@ function App() {
           <div className={`w-28 h-28 rounded-full border-4 border-double flex items-center justify-center bg-stone-950/20 shadow-2xl group hover:scale-105 transition-all duration-500 relative ${settings.theme === 'flora' ? 'border-[#5A7C54]/40 hover:border-[#5A7C54] shadow-[#5A7C54]/5' : 'border-amber-500/40 hover:border-amber-400 shadow-amber-500/5'}`}>
             <div className={`absolute inset-1 rounded-full border animate-spin-slow ${settings.theme === 'flora' ? 'border-[#5A7C54]/20' : 'border-amber-500/20'}`}></div>
             <span className={`font-serif text-3xl font-extrabold tracking-widest drop-shadow-md select-none ${settings.theme === 'flora' ? 'text-[#5A7C54]' : 'text-amber-400'}`}>
-              {settings.brideName.charAt(0)}&{settings.groomName.charAt(0)}
+              {settings.brideName ? settings.brideName.charAt(0) : 'B'}&{settings.groomName ? settings.groomName.charAt(0) : 'G'}
             </span>
           </div>
 
           <div className="space-y-4">
             <h2 className={`font-cursive text-6xl md:text-7xl leading-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)] ${settings.theme === 'flora' ? 'text-[#5A7C54]' : 'text-amber-400 animate-gold-glow'}`}>
-              {settings.brideName} & {settings.groomName}
+              {settings.brideName || 'Bride'} & {settings.groomName || 'Groom'}
             </h2>
             <div className={`h-[1px] w-32 mx-auto bg-gradient-to-r from-transparent ${settings.theme === 'flora' ? 'via-[#5A7C54]/40' : 'via-amber-500/40'} to-transparent`}></div>
           </div>
@@ -2103,26 +2140,74 @@ function App() {
                       >
                         <span className="text-xs font-bold text-white">{value.name}</span>
                         <div className="flex gap-1.5 mt-1">
-                          <div className={`w-3.5 h-3.5 rounded-full border border-stone-700/60 ${
-                            key === 'goldLight' ? 'bg-[#f7f4eb]' :
-                            key === 'goldDark' ? 'bg-stone-950' :
-                            key === 'emerald' ? 'bg-emerald-800' :
-                            key === 'crimson' ? 'bg-rose-900' :
-                            key === 'sapphire' ? 'bg-blue-900' :
-                            key === 'flora' ? 'bg-[#E8ECE7]' : 'bg-pink-900'
-                          }`}></div>
-                          <div className={`w-3.5 h-3.5 rounded-full ${
-                            key === 'goldLight' ? 'bg-[#b8953a]' :
-                            key === 'goldDark' ? 'bg-[#e5c158]' :
-                            key === 'emerald' ? 'bg-amber-400' :
-                            key === 'crimson' ? 'bg-yellow-400' :
-                            key === 'sapphire' ? 'bg-amber-300' :
-                            key === 'flora' ? 'bg-[#5A7C54]' : 'bg-yellow-200'
-                          }`}></div>
+                          <div className="w-3.5 h-3.5 rounded-full border border-stone-700/60" style={{
+                            backgroundColor: key === 'goldLight' ? '#f7f4eb' :
+                                            key === 'goldDark' ? '#1c1917' :
+                                            key === 'emerald' ? '#064e3b' :
+                                            key === 'crimson' ? '#4c0519' :
+                                            key === 'sapphire' ? '#172554' :
+                                            key === 'flora' ? '#E8ECE7' :
+                                            key === 'custom' ? (tempSettings.customColorPrimary || '#5a7c54') : '#500724'
+                          }}></div>
+                          <div className="w-3.5 h-3.5 rounded-full" style={{
+                            backgroundColor: key === 'goldLight' ? '#b8953a' :
+                                            key === 'goldDark' ? '#e5c158' :
+                                            key === 'emerald' ? '#fbbf24' :
+                                            key === 'crimson' ? '#facc15' :
+                                            key === 'sapphire' ? '#fde047' :
+                                            key === 'flora' ? '#5A7C54' :
+                                            key === 'custom' ? (tempSettings.customColorSecondary || '#b8953a') : '#f472b6'
+                          }}></div>
                         </div>
                       </button>
                     ))}
                   </div>
+
+                  {/* Custom Color Palette Color Pickers */}
+                  {tempSettings.theme === 'custom' && (
+                    <div className="p-4 bg-stone-950 rounded-2xl border border-stone-800 space-y-4 animate-fade-in">
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                        🎨 Select Custom Colors
+                      </h5>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[9px] uppercase tracking-widest text-stone-400 font-semibold mb-1.5">
+                            Primary Color
+                          </label>
+                          <div className="flex items-center gap-2 bg-stone-900 p-2 rounded-xl border border-stone-800">
+                            <input
+                              type="color"
+                              value={tempSettings.customColorPrimary || '#5a7c54'}
+                              onChange={(e) => setTempSettings({ ...tempSettings, customColorPrimary: e.target.value })}
+                              className="w-8 h-8 rounded-lg bg-transparent border-0 cursor-pointer p-0"
+                            />
+                            <span className="text-[10px] font-mono uppercase text-stone-300">
+                              {tempSettings.customColorPrimary || '#5a7c54'}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[9px] uppercase tracking-widest text-stone-400 font-semibold mb-1.5">
+                            Accent Color
+                          </label>
+                          <div className="flex items-center gap-2 bg-stone-900 p-2 rounded-xl border border-stone-800">
+                            <input
+                              type="color"
+                              value={tempSettings.customColorSecondary || '#b8953a'}
+                              onChange={(e) => setTempSettings({ ...tempSettings, customColorSecondary: e.target.value })}
+                              className="w-8 h-8 rounded-lg bg-transparent border-0 cursor-pointer p-0"
+                            />
+                            <span className="text-[10px] font-mono uppercase text-stone-300">
+                              {tempSettings.customColorSecondary || '#b8953a'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <span className="block text-[8px] text-stone-500 text-center leading-relaxed">
+                        * Custom theme dynamically applies your selected colors across all UI highlights and buttons!
+                      </span>
+                    </div>
+                  )}
 
                   <h4 className="font-serif text-sm font-bold text-amber-400 uppercase tracking-wider border-b border-stone-800 pb-2 pt-2">
                     Media & Background Audio Customization

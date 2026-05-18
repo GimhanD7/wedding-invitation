@@ -324,7 +324,7 @@ function LoadingScreen({ brideName, groomName, onEnter, onInteraction }) {
         <div className="w-16 h-16 rounded-full border border-amber-500/30 flex items-center justify-center bg-stone-900/60 shadow-lg shadow-amber-500/5 mx-auto mb-6 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/10 to-transparent blur-[2px]"></div>
           <span className="font-serif text-lg font-bold tracking-widest text-amber-400">
-            {brideName ? brideName.charAt(0) : 'N'}&{groomName ? groomName.charAt(0) : 'T'}
+            {brideName ? brideName.charAt(0) : 'B'}&{groomName ? groomName.charAt(0) : 'G'}
           </span>
         </div>
 
@@ -332,9 +332,8 @@ function LoadingScreen({ brideName, groomName, onEnter, onInteraction }) {
           You Are Warmly Invited
         </p>
 
-        {/* Floating Elegant Names */}
         <h2 className="font-serif text-3xl sm:text-4xl text-amber-200 font-light mb-8 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
-          {brideName} <span className="font-greatvibes text-amber-500 italic text-2xl sm:text-3xl mx-1">&</span> {groomName}
+          {brideName || 'Bride'} <span className="font-greatvibes text-amber-500 italic text-2xl sm:text-3xl mx-1">&</span> {groomName || 'Groom'}
         </h2>
 
         {/* LOADING PROGRESS / ENTER BUTTON */}
