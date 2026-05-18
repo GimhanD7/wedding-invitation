@@ -1000,13 +1000,17 @@ function App() {
         )}
 
         {/* Floating Top Monogram Badge */}
-        <div className={`w-20 h-20 rounded-full border-2 flex items-center justify-center shadow-lg mb-8 fade-in-up-1 relative group overflow-hidden ${
-          settings.theme === 'flora' 
-            ? 'border-[#5A7C54]/50 bg-white/70 shadow-[#5A7C54]/5' 
-            : settings.theme === 'goldLight'
-              ? 'border-[#b8953a]/50 bg-white/70 shadow-[#b8953a]/5'
-              : 'border-amber-400/50 bg-stone-900/50 shadow-amber-400/10'
-        }`}>
+        <div 
+          style={settings.theme === 'custom' ? { borderColor: 'var(--custom-primary)', boxShadow: '0 4px 12px -2px var(--custom-primary)' } : {}}
+          className={`w-20 h-20 rounded-full border-2 flex items-center justify-center shadow-lg mb-8 fade-in-up-1 relative group overflow-hidden ${
+            settings.theme === 'flora' 
+              ? 'border-[#5A7C54]/50 bg-white/70 shadow-[#5A7C54]/5' 
+              : settings.theme === 'goldLight'
+                ? 'border-[#b8953a]/50 bg-white/70 shadow-[#b8953a]/5'
+                : settings.theme === 'custom'
+                  ? 'bg-stone-950/60'
+                  : 'border-amber-400/50 bg-stone-900/50 shadow-amber-400/10'
+          }`}>
           <div className={`absolute inset-0 bg-gradient-to-tr opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${
             settings.theme === 'flora' 
               ? 'from-[#5A7C54]/10 via-transparent to-[#5A7C54]/10' 
@@ -1014,45 +1018,59 @@ function App() {
                 ? 'from-[#b8953a]/10 via-transparent to-[#b8953a]/10'
                 : 'from-amber-500/10 via-transparent to-amber-500/10'
           }`}></div>
-          <span className={`font-serif text-2xl font-bold tracking-widest ${
-            settings.theme === 'flora' 
-              ? 'text-[#5A7C54]' 
-              : settings.theme === 'goldLight'
-                ? 'text-[#b8953a]'
-                : 'text-amber-400 animate-gold-glow'
-          }`}>
+          <span 
+            style={settings.theme === 'custom' ? { color: 'var(--custom-primary)' } : {}}
+            className={`font-serif text-2xl font-bold tracking-widest ${
+              settings.theme === 'flora' 
+                ? 'text-[#5A7C54]' 
+                : settings.theme === 'goldLight'
+                  ? 'text-[#b8953a]'
+                  : settings.theme === 'custom' ? '' : 'text-amber-400 animate-gold-glow'
+            }`}>
             {brideInitial} & {groomInitial}
           </span>
         </div>
 
         {/* Invitation Text */}
-        <p className={`font-serif text-sm md:text-base uppercase tracking-[0.3em] mb-4 fade-in-up-1 ${
-          settings.theme === 'flora' ? 'text-[#5A7C54]/90' : settings.theme === 'goldLight' ? 'text-[#b8953a]/90' : 'text-amber-400/90'
-        }`}>
+        <p 
+          style={settings.theme === 'custom' ? { color: 'var(--custom-primary)' } : {}}
+          className={`font-serif text-sm md:text-base uppercase tracking-[0.3em] mb-4 fade-in-up-1 ${
+            settings.theme === 'flora' ? 'text-[#5A7C54]/90' : settings.theme === 'goldLight' ? 'text-[#b8953a]/90' : 'text-amber-400/90'
+          }`}>
           Save the Date
         </p>
 
         {/* Large Elegant Couple Names */}
         <div className="space-y-4 max-w-4xl px-4 select-none mb-6">
-          <h1 className={`font-cursive text-7xl md:text-9xl leading-tight drop-shadow-[0_4px_6px_rgba(0,0,0,0.15)] fade-in-up-2 ${
-            settings.theme === 'flora' ? 'text-[#5A7C54]' : settings.theme === 'goldLight' ? 'text-[#b8953a]' : 'text-amber-400 animate-gold-glow'
-          }`}>
+          <h1 
+            style={settings.theme === 'custom' ? { color: 'var(--custom-primary)' } : {}}
+            className={`font-cursive text-7xl md:text-9xl leading-tight drop-shadow-[0_4px_6px_rgba(0,0,0,0.15)] fade-in-up-2 ${
+              settings.theme === 'flora' ? 'text-[#5A7C54]' : settings.theme === 'goldLight' ? 'text-[#b8953a]' : 'text-amber-400 animate-gold-glow'
+            }`}>
             {settings.brideName}
           </h1>
           <div className="flex items-center justify-center gap-6 fade-in-up-3">
-            <div className={`h-[1px] w-20 bg-gradient-to-r from-transparent ${
-              settings.theme === 'flora' ? 'to-[#5A7C54]/40' : settings.theme === 'goldLight' ? 'to-[#b8953a]/40' : 'to-amber-400/40'
-            }`}></div>
-            <span className={`font-serif text-3xl md:text-4xl font-light ${
-              settings.theme === 'flora' ? 'text-[#5A7C54]/90' : settings.theme === 'goldLight' ? 'text-[#b8953a]/90' : 'text-amber-200/90'
-            }`}>&</span>
-            <div className={`h-[1px] w-20 bg-gradient-to-l from-transparent ${
-              settings.theme === 'flora' ? 'to-[#5A7C54]/40' : settings.theme === 'goldLight' ? 'to-[#b8953a]/40' : 'to-amber-400/40'
-            }`}></div>
+            <div 
+              style={settings.theme === 'custom' ? { backgroundImage: 'linear-to-r', from: 'transparent', to: 'var(--custom-primary)' } : {}}
+              className={`h-[1px] w-20 bg-gradient-to-r from-transparent ${
+                settings.theme === 'flora' ? 'to-[#5A7C54]/40' : settings.theme === 'goldLight' ? 'to-[#b8953a]/40' : 'to-amber-400/40'
+              }`}></div>
+            <span 
+              style={settings.theme === 'custom' ? { color: 'var(--custom-accent)' } : {}}
+              className={`font-serif text-3xl md:text-4xl font-light ${
+                settings.theme === 'flora' ? 'text-[#5A7C54]/90' : settings.theme === 'goldLight' ? 'text-[#b8953a]/90' : 'text-amber-200/90'
+              }`}>&</span>
+            <div 
+              style={settings.theme === 'custom' ? { backgroundImage: 'linear-to-l', from: 'transparent', to: 'var(--custom-primary)' } : {}}
+              className={`h-[1px] w-20 bg-gradient-to-l from-transparent ${
+                settings.theme === 'flora' ? 'to-[#5A7C54]/40' : settings.theme === 'goldLight' ? 'to-[#b8953a]/40' : 'to-amber-400/40'
+              }`}></div>
           </div>
-          <h1 className={`font-cursive text-7xl md:text-9xl leading-tight drop-shadow-[0_4px_6px_rgba(0,0,0,0.15)] fade-in-up-4 ${
-            settings.theme === 'flora' ? 'text-[#5A7C54]' : settings.theme === 'goldLight' ? 'text-[#b8953a]' : 'text-amber-400 animate-gold-glow'
-          }`}>
+          <h1 
+            style={settings.theme === 'custom' ? { color: 'var(--custom-primary)' } : {}}
+            className={`font-cursive text-7xl md:text-9xl leading-tight drop-shadow-[0_4px_6px_rgba(0,0,0,0.15)] fade-in-up-4 ${
+              settings.theme === 'flora' ? 'text-[#5A7C54]' : settings.theme === 'goldLight' ? 'text-[#b8953a]' : 'text-amber-400 animate-gold-glow'
+            }`}>
             {settings.groomName}
           </h1>
         </div>
