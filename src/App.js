@@ -1,5 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import LoadingScreen from './components/LoadingScreen';
+import { db } from './firebase';
+import { 
+  collection, 
+  doc, 
+  addDoc, 
+  setDoc, 
+  onSnapshot, 
+  query, 
+  orderBy, 
+  deleteDoc, 
+  getDocs 
+} from 'firebase/firestore';
 
 // Theme configurations for the Wedding Invitation
 const themes = {
@@ -170,6 +182,14 @@ function App() {
   const [personalizedGuest, setPersonalizedGuest] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
 
+  // --- ADMIN SECURITY & PATH ROUTING ---
+  const [isAdminRoute, setIsAdminRoute] = useState(false);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(
+    () => sessionStorage.getItem('wedding_admin_authenticated') === 'true'
+  );
+  const [adminPinInput, setAdminPinInput] = useState('');
+  const [adminError, setAdminError] = useState('');
+
   // --- PLAY MUSIC STATE ---
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioStarted, setAudioStarted] = useState(false);
@@ -257,11 +277,26 @@ function App() {
   // Canvas ref for Confetti
   const canvasRef = useRef(null);
 
-  // --- LOAD PARAMETERS FROM URL ON MOUNT ---
+  // --- URL PARAMS, ADMIN DETECTOR & FIRESTORE REAL-TIME SYNC ---
   useEffect(() => {
+    // 1. Detect Admin Route (Path, Hash, or Query)
+    const checkRoute = () => {
+      const isPathAdmin = window.location.pathname === '/admin' || 
+                          window.location.hash === '#admin' || 
+                          window.location.search.includes('admin=true');
+      setIsAdminRoute(isPathAdmin);
+      
+      if (isPathAdmin && sessionStorage.getItem('wedding_admin_authenticated') === 'true') {
+        setIsPanelOpen(true);
+      }
+    };
+    checkRoute();
+    window.addEventListener('popstate', checkRoute);
+    window.addEventListener('hashchange', checkRoute);
+
+    // 2. Parse URL parameters for localized guest overrides
     const params = new URLSearchParams(window.location.search);
     const urlSettings = {};
-    
     if (params.get('bride')) urlSettings.brideName = params.get('bride');
     if (params.get('groom')) urlSettings.groomName = params.get('groom');
     if (params.get('date')) urlSettings.weddingDate = params.get('date');
@@ -280,30 +315,77 @@ function App() {
         setTempSettings(newSettings);
         return newSettings;
       });
-      
-      // Auto fill RSVP form guest name if URL guest is specified and not default
       if (urlSettings.guestName && urlSettings.guestName !== 'Mr. / Mr. & Mrs. / Ms. / Family') {
         setRsvpForm(prev => ({ ...prev, name: urlSettings.guestName }));
       }
     }
 
-    // Load RSVPs & Wishes from LocalStorage
-    const savedRsvps = localStorage.getItem('wedding_rsvps');
-    if (savedRsvps) setRsvps(JSON.parse(savedRsvps));
+    // 3. Subscribe to Settings in Firestore
+    const unsubSettings = onSnapshot(doc(db, "wedding", "settings"), (docSnap) => {
+      if (docSnap.exists()) {
+        const cloudData = docSnap.data();
+        // Merge Firestore cloud configurations with URL guest parameter configurations
+        setSettings(prev => ({ ...prev, ...cloudData, guestName: urlSettings.guestName || cloudData.guestName || prev.guestName }));
+        setTempSettings(prev => ({ ...prev, ...cloudData, guestName: urlSettings.guestName || cloudData.guestName || prev.guestName }));
+      } else {
+        const initialDefault = {
+          brideName: 'Niwarthana',
+          groomName: 'Thenuka',
+          weddingDate: '2026-05-25T15:30:00',
+          venueName: 'Saminro Grand Palace',
+          venueAddress: 'Veyangoda, Sri Lanka',
+          venueGoogleLink: 'https://maps.google.com/?q=Saminro+Grand+Palace+Veyangoda',
+          theme: 'flora',
+          guestName: 'Mr. / Mr. & Mrs. / Ms. / Family',
+          coupleOutdoorImg: 'images/couple_outdoor.png',
+          couplePortraitImg: 'images/couple_portrait.png',
+          bgMusicUrl: 'https://www.chosic.com/wp-content/uploads/2021/07/In-love-again.mp3'
+        };
+        setDoc(doc(db, "wedding", "settings"), initialDefault)
+          .catch(e => console.log("Failed to seed initial Firestore settings:", e));
+      }
+    });
 
-    const savedWishes = localStorage.getItem('wedding_wishes');
-    if (savedWishes) {
-      setWishes(JSON.parse(savedWishes));
-    } else {
-      // Set some initial beautiful mock wishes to demonstrate the board
-      const mockWishes = [
-        { name: 'Nimal & Kanthi', message: 'Wishing you both a lifetime of love and happiness together! So excited to celebrate!', date: 'Just now', color: 'bg-emerald-50' },
-        { name: 'Dr. Ruwan', message: 'May your wedding day be filled with sweet memories and the beginning of a beautiful journey.', date: '2 hours ago', color: 'bg-rose-50' },
-        { name: 'Asha Jayawardena', message: 'Congratulations Niwarthana and Thenuka! May God bless your union with endless joy.', date: '1 day ago', color: 'bg-blue-50' }
-      ];
-      setWishes(mockWishes);
-      localStorage.setItem('wedding_wishes', JSON.stringify(mockWishes));
-    }
+    // 4. Subscribe to RSVPs in Firestore
+    const rsvpQuery = query(collection(db, "rsvps"), orderBy("timestamp", "desc"));
+    const unsubRsvps = onSnapshot(rsvpQuery, (snapshot) => {
+      const rsvpList = [];
+      snapshot.forEach((docSnap) => {
+        rsvpList.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      setRsvps(rsvpList);
+    });
+
+    // 5. Subscribe to Wishes in Firestore
+    const wishesQuery = query(collection(db, "wishes"), orderBy("timestamp", "desc"));
+    const unsubWishes = onSnapshot(wishesQuery, (snapshot) => {
+      const wishesList = [];
+      snapshot.forEach((docSnap) => {
+        wishesList.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      if (wishesList.length > 0) {
+        setWishes(wishesList);
+      } else {
+        const mockWishes = [
+          { name: 'Nimal & Kanthi', message: 'Wishing you both a lifetime of love and happiness together! So excited to celebrate!', date: 'Just now', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+          { name: 'Dr. Ruwan', message: 'May your wedding day be filled with sweet memories and the beginning of a beautiful journey.', date: '2 hours ago', color: 'bg-rose-100 text-rose-800 border-rose-300' },
+          { name: 'Asha Jayawardena', message: 'Congratulations Niwarthana and Thenuka! May God bless your union with endless joy.', date: '1 day ago', color: 'bg-blue-100 text-blue-800 border-blue-300' }
+        ];
+        setWishes(mockWishes);
+        // Seed initial wishes to Firestore if empty
+        mockWishes.forEach(async (wish) => {
+          await addDoc(collection(db, "wishes"), { ...wish, timestamp: new Date() });
+        });
+      }
+    });
+
+    return () => {
+      window.removeEventListener('popstate', checkRoute);
+      window.removeEventListener('hashchange', checkRoute);
+      unsubSettings();
+      unsubRsvps();
+      unsubWishes();
+    };
   }, []);
 
   // --- DYNAMIC MUSIC LOADER ---
@@ -473,33 +555,34 @@ function App() {
   };
 
   // --- RSVP FORM HANDLERS ---
-  const handleRsvpSubmit = (e) => {
+  const handleRsvpSubmit = async (e) => {
     e.preventDefault();
     if (!rsvpForm.name.trim()) return;
 
     const newRsvp = {
       ...rsvpForm,
-      id: Date.now(),
-      dateString: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+      dateString: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+      timestamp: new Date()
     };
 
-    const updatedRsvps = [newRsvp, ...rsvps];
-    setRsvps(updatedRsvps);
-    localStorage.setItem('wedding_rsvps', JSON.stringify(updatedRsvps));
+    try {
+      await addDoc(collection(db, "rsvps"), newRsvp);
+      setRsvpSubmitted(true);
+      triggerConfetti();
 
-    setRsvpSubmitted(true);
-    triggerConfetti();
-
-    // Reset Form partially
-    setRsvpForm(prev => ({
-      ...prev,
-      phone: '',
-      message: ''
-    }));
+      // Reset Form partially
+      setRsvpForm(prev => ({
+        ...prev,
+        phone: '',
+        message: ''
+      }));
+    } catch (err) {
+      console.error("Error submitting RSVP to Firestore:", err);
+    }
   };
 
   // --- WISH SUBMISSION HANDLER ---
-  const handleWishSubmit = (e) => {
+  const handleWishSubmit = async (e) => {
     e.preventDefault();
     if (!wishForm.name.trim() || !wishForm.message.trim()) return;
 
@@ -516,31 +599,37 @@ function App() {
     const newWish = {
       name: wishForm.name,
       message: wishForm.message,
-      date: 'Just now',
-      color: randomColor
+      date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+      color: randomColor,
+      timestamp: new Date()
     };
 
-    const updatedWishes = [newWish, ...wishes];
-    setWishes(updatedWishes);
-    localStorage.setItem('wedding_wishes', JSON.stringify(updatedWishes));
-
-    setWishForm({
-      name: '',
-      message: '',
-      avatarColor: 'bg-amber-500'
-    });
-
-    triggerConfetti();
+    try {
+      await addDoc(collection(db, "wishes"), newWish);
+      setWishForm({
+        name: '',
+        message: '',
+        avatarColor: 'bg-amber-500'
+      });
+      triggerConfetti();
+    } catch (err) {
+      console.error("Error submitting wish to Firestore:", err);
+    }
   };
 
   // --- CUSTOMIZER CONTROLLER ---
-  const handleApplySettings = () => {
-    setSettings(tempSettings);
-    setIsPanelOpen(false);
-    triggerConfetti();
+  const handleApplySettings = async () => {
+    try {
+      await setDoc(doc(db, "wedding", "settings"), tempSettings);
+      setSettings(tempSettings);
+      setIsPanelOpen(false);
+      triggerConfetti();
+    } catch (err) {
+      console.error("Error applying settings to Firestore:", err);
+    }
   };
 
-  const handleResetSettings = () => {
+  const handleResetSettings = async () => {
     const defaultSettings = {
       brideName: 'Niwarthana',
       groomName: 'Thenuka',
@@ -554,10 +643,15 @@ function App() {
       couplePortraitImg: 'images/couple_portrait.png',
       bgMusicUrl: 'https://www.chosic.com/wp-content/uploads/2021/07/In-love-again.mp3'
     };
-    setSettings(defaultSettings);
-    setTempSettings(defaultSettings);
-    setIsPanelOpen(false);
-    triggerConfetti();
+    try {
+      await setDoc(doc(db, "wedding", "settings"), defaultSettings);
+      setSettings(defaultSettings);
+      setTempSettings(defaultSettings);
+      setIsPanelOpen(false);
+      triggerConfetti();
+    } catch (err) {
+      console.error("Error resetting settings in Firestore:", err);
+    }
   };
 
   // --- GENERATE PERSONALIZED INVITATION SHAREABLE LINK ---
@@ -808,17 +902,19 @@ function App() {
           )}
         </button>
 
-        {/* CUSTOMIZER DRAWER TRIGGER */}
-        <button
-          onClick={() => {
-            setTempSettings({ ...settings });
-            setIsPanelOpen(true);
-          }}
-          className={`w-12 h-12 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 bg-gradient-to-r from-amber-500 to-yellow-400 text-stone-950 hover:scale-110`}
-          title="Customize Invitation / Manage RSVPs"
-        >
-          <i className="fa-solid fa-wand-magic-sparkles text-lg animate-pulse"></i>
-        </button>
+        {/* CUSTOMIZER DRAWER TRIGGER (ONLY FOR AUTHENTICATED ADMINS) */}
+        {isAdminRoute && isAdminAuthenticated && (
+          <button
+            onClick={() => {
+              setTempSettings({ ...settings });
+              setIsPanelOpen(true);
+            }}
+            className={`w-12 h-12 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 bg-gradient-to-r from-amber-500 to-yellow-400 text-stone-950 hover:scale-110`}
+            title="Customize Invitation / Manage RSVPs"
+          >
+            <i className="fa-solid fa-wand-magic-sparkles text-lg animate-pulse"></i>
+          </button>
+        )}
 
       </div>
 
@@ -1706,378 +1802,489 @@ function App() {
       {/* ========================================================================= */}
       {/* 8. SLIDING CONTROL PANEL (REAL-TIME LIVE WEDDING invitation SETTINGS)     */}
       {/* ========================================================================= */}
-      <div className={`fixed inset-y-0 right-0 w-full sm:w-[480px] bg-stone-900 border-l border-stone-800 text-stone-200 z-50 shadow-2xl transition-transform duration-500 ${isPanelOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div className="flex flex-col h-full">
-          
-          {/* Customizer Header */}
-          <div className="p-6 border-b border-stone-800 flex items-center justify-between bg-stone-950">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-400 flex items-center justify-center text-stone-950 shadow-lg">
-                <i className="fa-solid fa-gears text-lg"></i>
-              </div>
-              <div>
-                <h3 className="font-serif text-lg font-bold text-white tracking-wide">
-                  Invitation Studio
-                </h3>
-                <p className="font-sans text-[10px] text-stone-400 uppercase tracking-widest">
-                  Live Customizer & RSVPs
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setIsPanelOpen(false)}
-              className="w-10 h-10 rounded-full border border-stone-800 hover:border-stone-700 flex items-center justify-center text-stone-400 hover:text-white transition-colors"
-            >
-              <i className="fa-solid fa-xmark text-lg"></i>
-            </button>
-          </div>
-
-          {/* TAB LINKS BAR */}
-          <div className="grid grid-cols-4 border-b border-stone-800 text-xs uppercase tracking-widest font-semibold text-center select-none bg-stone-900/50">
-            {[
-              { id: 'info', icon: 'fa-user-pen', label: 'Couples' },
-              { id: 'date', icon: 'fa-calendar-day', label: 'Venue' },
-              { id: 'theme', icon: 'fa-palette', label: 'Design' },
-              { id: 'rsvps', icon: 'fa-envelope-open-text', label: `RSVPs (${rsvps.length})` }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`py-4 flex flex-col items-center gap-1 transition-colors border-b-2 ${activeTab === tab.id ? 'border-amber-400 text-amber-400 bg-stone-800/30' : 'border-transparent text-stone-400 hover:text-white'}`}
-              >
-                <i className={`fa-solid ${tab.icon} text-base`}></i>
-                <span className="text-[9px] mt-1">{tab.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* TAB CONTENT (SCROLLABLE) */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-stone-950/20">
+      {/* ========================================================================= */}
+      {/* ADMIN AUTHENTICATION DIALOG (GLASSMORPHIC GOLD PIN LOCK)                 */}
+      {/* ========================================================================= */}
+      {isAdminRoute && !isAdminAuthenticated && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/85 backdrop-blur-2xl px-4 select-none animate-fade-in animate-duration-500">
+          <div className="max-w-md w-full bg-stone-900/90 border border-amber-500/30 rounded-3xl p-8 shadow-2xl relative overflow-hidden text-center space-y-6">
             
-            {/* TAB A: Couple Personal Details */}
-            {activeTab === 'info' && (
-              <div className="space-y-5 animate-fade-in">
-                
-                <h4 className="font-serif text-sm font-bold text-amber-400 uppercase tracking-wider border-b border-stone-800 pb-2">
-                  Couple Information
-                </h4>
+            {/* Background elements */}
+            <div className="absolute -top-24 -right-24 w-48 h-48 rounded-full bg-amber-500/10 blur-3xl pointer-events-none"></div>
+            <div className="absolute -bottom-24 -left-24 w-48 h-48 rounded-full bg-yellow-500/10 blur-3xl pointer-events-none"></div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
-                      Bride Name
-                    </label>
-                    <input
-                      type="text"
-                      value={tempSettings.brideName}
-                      onChange={(e) => setTempSettings({ ...tempSettings, brideName: e.target.value })}
-                      className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-100 text-sm focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
-                      Groom Name
-                    </label>
-                    <input
-                      type="text"
-                      value={tempSettings.groomName}
-                      onChange={(e) => setTempSettings({ ...tempSettings, groomName: e.target.value })}
-                      className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-100 text-sm focus:outline-none"
-                    />
-                  </div>
-                </div>
+            {/* Emblem Monogram */}
+            <div className="w-16 h-16 rounded-full border border-amber-500/40 flex items-center justify-center bg-stone-950 mx-auto shadow-lg shadow-amber-500/5">
+              <i className="fa-solid fa-lock text-xl text-amber-400 animate-pulse"></i>
+            </div>
 
-                <h4 className="font-serif text-sm font-bold text-amber-400 uppercase tracking-wider border-b border-stone-800 pb-2 pt-2">
-                  Personalized Guest Link Generator
-                </h4>
+            <div className="space-y-2">
+              <h3 className="font-serif text-2xl font-bold text-white tracking-wide">
+                Invitation Studio
+              </h3>
+              <p className="font-sans text-xs uppercase tracking-widest text-amber-500/80 font-semibold">
+                Administrative Portal
+              </p>
+              <p className="font-sans text-xs text-stone-400 max-w-xs mx-auto leading-relaxed">
+                Enter your administrative PIN below to customize details and view guest RSVPs.
+              </p>
+            </div>
 
-                <p className="text-[11px] text-stone-400 leading-relaxed">
-                  Type a guest name below to generate a highly customized shareable invitation link specifically for them!
+            {/* PIN Code Form */}
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (adminPinInput === '2026' || adminPinInput === 'admin123' || adminPinInput === '1234') {
+                  sessionStorage.setItem('wedding_admin_authenticated', 'true');
+                  setIsAdminAuthenticated(true);
+                  setIsPanelOpen(true);
+                  setAdminPinInput('');
+                  setAdminError('');
+                } else {
+                  setAdminError('Invalid security PIN. Please try again!');
+                  setAdminPinInput('');
+                }
+              }}
+              className="space-y-4"
+            >
+              <div className="relative">
+                <input
+                  type="password"
+                  pattern="[0-9]*"
+                  inputMode="numeric"
+                  maxLength="8"
+                  placeholder="••••"
+                  value={adminPinInput}
+                  onChange={(e) => {
+                    setAdminPinInput(e.target.value);
+                    setAdminError('');
+                  }}
+                  className="w-full bg-stone-950/80 border border-stone-800 focus:border-amber-400 rounded-2xl py-3 px-4 text-center text-xl font-bold tracking-[0.4em] text-amber-300 placeholder-stone-700 focus:outline-none transition-all duration-300"
+                />
+              </div>
+
+              {adminError && (
+                <p className="text-xs text-red-500 font-semibold animate-bounce mt-1">
+                  ⚠ {adminError}
                 </p>
+              )}
 
-                <div className="space-y-4 bg-stone-900/60 p-4 rounded-xl border border-stone-800">
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.hash = '';
+                    window.location.pathname = '/';
+                  }}
+                  className="py-3 rounded-xl border border-stone-800 hover:border-stone-700 text-stone-400 hover:text-white text-xs uppercase tracking-widest font-bold transition-all duration-300"
+                >
+                  Exit to Card
+                </button>
+
+                <button
+                  type="submit"
+                  className="py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-stone-950 text-xs uppercase tracking-widest font-bold shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all duration-300"
+                >
+                  Unlock Admin
+                </button>
+              </div>
+
+            </form>
+
+            <span className="block text-[9px] text-stone-600 font-medium">
+              * Secure cloud environment protected by Firebase SSL
+            </span>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 8. SLIDING CONTROL PANEL (REAL-TIME LIVE WEDDING INVITATION SETTINGS)     */}
+      {/* ========================================================================= */}
+      {isAdminRoute && isAdminAuthenticated && (
+        <div className={`fixed inset-y-0 right-0 w-full sm:w-[480px] bg-stone-900 border-l border-stone-800 text-stone-200 z-50 shadow-2xl transition-transform duration-500 ${isPanelOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+          <div className="flex flex-col h-full">
+            
+            {/* Customizer Header */}
+            <div className="p-6 border-b border-stone-800 flex items-center justify-between bg-stone-950">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-400 flex items-center justify-center text-stone-950 shadow-lg">
+                  <i className="fa-solid fa-gears text-lg"></i>
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-white tracking-wide">
+                    Invitation Studio
+                  </h3>
+                  <p className="font-sans text-[10px] text-stone-400 uppercase tracking-widest">
+                    Live Customizer & RSVPs
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPanelOpen(false)}
+                className="w-10 h-10 rounded-full border border-stone-800 hover:border-stone-700 flex items-center justify-center text-stone-400 hover:text-white transition-colors"
+              >
+                <i className="fa-solid fa-xmark text-lg"></i>
+              </button>
+            </div>
+
+            {/* TAB LINKS BAR */}
+            <div className="grid grid-cols-4 border-b border-stone-800 text-xs uppercase tracking-widest font-semibold text-center select-none bg-stone-900/50">
+              {[
+                { id: 'info', icon: 'fa-user-pen', label: 'Couples' },
+                { id: 'date', icon: 'fa-calendar-day', label: 'Venue' },
+                { id: 'theme', icon: 'fa-palette', label: 'Design' },
+                { id: 'rsvps', icon: 'fa-envelope-open-text', label: `RSVPs (${rsvps.length})` }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`py-4 flex flex-col items-center gap-1 transition-colors border-b-2 ${activeTab === tab.id ? 'border-amber-400 text-amber-400 bg-stone-800/30' : 'border-transparent text-stone-400 hover:text-white'}`}
+                >
+                  <i className={`fa-solid ${tab.icon} text-base`}></i>
+                  <span className="text-[9px] mt-1">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* TAB CONTENT (SCROLLABLE) */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-stone-950/20">
+              
+              {/* TAB A: Couple Personal Details */}
+              {activeTab === 'info' && (
+                <div className="space-y-5 animate-fade-in">
+                  
+                  <h4 className="font-serif text-sm font-bold text-amber-400 uppercase tracking-wider border-b border-stone-800 pb-2">
+                    Couple Information
+                  </h4>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
+                        Bride Name
+                      </label>
+                      <input
+                        type="text"
+                        value={tempSettings.brideName}
+                        onChange={(e) => setTempSettings({ ...tempSettings, brideName: e.target.value })}
+                        className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-100 text-sm focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
+                        Groom Name
+                      </label>
+                      <input
+                        type="text"
+                        value={tempSettings.groomName}
+                        onChange={(e) => setTempSettings({ ...tempSettings, groomName: e.target.value })}
+                        className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-100 text-sm focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <h4 className="font-serif text-sm font-bold text-amber-400 uppercase tracking-wider border-b border-stone-800 pb-2 pt-2">
+                    Personalized Guest Link Generator
+                  </h4>
+
+                  <p className="text-[11px] text-stone-400 leading-relaxed">
+                    Type a guest name below to generate a highly customized shareable invitation link specifically for them!
+                  </p>
+
+                  <div className="space-y-4 bg-stone-900/60 p-4 rounded-xl border border-stone-800">
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
+                        Individual Guest Name
+                      </label>
+                      <input
+                        type="text"
+                        value={personalizedGuest}
+                        onChange={(e) => setPersonalizedGuest(e.target.value)}
+                        className="w-full bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-amber-300 placeholder-stone-600 text-sm font-semibold focus:outline-none"
+                        placeholder="e.g. Mr. & Mrs. Jayasekara"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyLink}
+                      className="w-full py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-400 text-stone-950 font-bold text-xs uppercase tracking-widest shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
+                    >
+                      <i className="fa-solid fa-copy"></i>
+                      {copiedLink ? "Link Copied!" : "Copy Guest Link"}
+                    </button>
+                    {copiedLink && (
+                      <span className="block text-center text-[10px] text-emerald-400 font-medium">
+                        ✓ Share this copied link directly with this guest!
+                      </span>
+                    )}
+                  </div>
+
+                </div>
+              )}
+
+              {/* TAB B: Venue & Schedule Details */}
+              {activeTab === 'date' && (
+                <div className="space-y-5 animate-fade-in">
+                  
+                  <h4 className="font-serif text-sm font-bold text-amber-400 uppercase tracking-wider border-b border-stone-800 pb-2">
+                    Venue & Schedule Details
+                  </h4>
+
                   <div>
                     <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
-                      Individual Guest Name
+                      Wedding Date & Time
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={tempSettings.weddingDate.substring(0, 16)}
+                      onChange={(e) => setTempSettings({ ...tempSettings, weddingDate: e.target.value })}
+                      className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-100 text-sm focus:outline-none"
+                    />
+                    <span className="block text-[9px] text-stone-500 mt-1">
+                      * The countdown timer recalculates automatically in real time!
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
+                      Venue Name
                     </label>
                     <input
                       type="text"
-                      value={personalizedGuest}
-                      onChange={(e) => setPersonalizedGuest(e.target.value)}
-                      className="w-full bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-amber-300 placeholder-stone-600 text-sm font-semibold focus:outline-none"
-                      placeholder="e.g. Mr. & Mrs. Jayasekara"
+                      value={tempSettings.venueName}
+                      onChange={(e) => setTempSettings({ ...tempSettings, venueName: e.target.value })}
+                      className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-100 text-sm focus:outline-none"
                     />
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleCopyLink}
-                    className="w-full py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-400 text-stone-950 font-bold text-xs uppercase tracking-widest shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
-                  >
-                    <i className="fa-solid fa-copy"></i>
-                    {copiedLink ? "Link Copied!" : "Copy Guest Link"}
-                  </button>
-                  {copiedLink && (
-                    <span className="block text-center text-[10px] text-emerald-400 font-medium">
-                      ✓ Share this copied link directly with this guest!
-                    </span>
-                  )}
-                </div>
-
-              </div>
-            )}
-
-            {/* TAB B: Venue & Schedule Settings */}
-            {activeTab === 'date' && (
-              <div className="space-y-5 animate-fade-in">
-                
-                <h4 className="font-serif text-sm font-bold text-amber-400 uppercase tracking-wider border-b border-stone-800 pb-2">
-                  Venue & Schedule Details
-                </h4>
-
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
-                    Wedding Date & Time
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={tempSettings.weddingDate.substring(0, 16)}
-                    onChange={(e) => setTempSettings({ ...tempSettings, weddingDate: e.target.value })}
-                    className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-100 text-sm focus:outline-none"
-                  />
-                  <span className="block text-[9px] text-stone-500 mt-1">
-                    * The countdown timer recalculates automatically in real time!
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
-                    Venue Name
-                  </label>
-                  <input
-                    type="text"
-                    value={tempSettings.venueName}
-                    onChange={(e) => setTempSettings({ ...tempSettings, venueName: e.target.value })}
-                    className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-100 text-sm focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
-                    Venue Address
-                  </label>
-                  <input
-                    type="text"
-                    value={tempSettings.venueAddress}
-                    onChange={(e) => setTempSettings({ ...tempSettings, venueAddress: e.target.value })}
-                    className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-100 text-sm focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
-                    Google Maps Navigation Link
-                  </label>
-                  <input
-                    type="url"
-                    value={tempSettings.venueGoogleLink}
-                    onChange={(e) => setTempSettings({ ...tempSettings, venueGoogleLink: e.target.value })}
-                    className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-100 text-xs focus:outline-none"
-                  />
-                </div>
-
-              </div>
-            )}
-
-            {/* TAB C: Themes & Custom Background Music/Images */}
-            {activeTab === 'theme' && (
-              <div className="space-y-5 animate-fade-in">
-                
-                <h4 className="font-serif text-sm font-bold text-amber-400 uppercase tracking-wider border-b border-stone-800 pb-2">
-                  Select Design Theme Colors
-                </h4>
-
-                <div className="grid grid-cols-2 gap-3">
-                  {Object.entries(themes).map(([key, value]) => (
-                    <button
-                      key={key}
-                      onClick={() => setTempSettings({ ...tempSettings, theme: key })}
-                      className={`p-3 rounded-xl border text-left transition-all duration-300 flex flex-col gap-1 ${tempSettings.theme === key ? 'bg-stone-800 border-amber-400 shadow-md shadow-amber-400/5' : 'border-stone-800 hover:bg-stone-900/60 text-stone-400'}`}
-                    >
-                      <span className="text-xs font-bold text-white">{value.name}</span>
-                      <div className="flex gap-1.5 mt-1">
-                        <div className={`w-3.5 h-3.5 rounded-full border border-stone-700/60 ${
-                          key === 'goldLight' ? 'bg-[#f7f4eb]' :
-                          key === 'goldDark' ? 'bg-stone-950' :
-                          key === 'emerald' ? 'bg-emerald-800' :
-                          key === 'crimson' ? 'bg-rose-900' :
-                          key === 'sapphire' ? 'bg-blue-900' :
-                          key === 'flora' ? 'bg-[#E8ECE7]' : 'bg-pink-900'
-                        }`}></div>
-                        <div className={`w-3.5 h-3.5 rounded-full ${
-                          key === 'goldLight' ? 'bg-[#b8953a]' :
-                          key === 'goldDark' ? 'bg-[#e5c158]' :
-                          key === 'emerald' ? 'bg-amber-400' :
-                          key === 'crimson' ? 'bg-yellow-400' :
-                          key === 'sapphire' ? 'bg-amber-300' :
-                          key === 'flora' ? 'bg-[#5A7C54]' : 'bg-yellow-200'
-                        }`}></div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                <h4 className="font-serif text-sm font-bold text-amber-400 uppercase tracking-wider border-b border-stone-800 pb-2 pt-2">
-                  Media & Background Audio Customization
-                </h4>
-
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
-                    Couple Image 1 (Outdoor Polaroid) URL
-                  </label>
-                  <input
-                    type="text"
-                    value={tempSettings.coupleOutdoorImg}
-                    onChange={(e) => setTempSettings({ ...tempSettings, coupleOutdoorImg: e.target.value })}
-                    className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-200 text-xs focus:outline-none"
-                  />
-                  <span className="block text-[9px] text-stone-500 mt-1">
-                    * You can paste any high-quality image URL or leave it as default.
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
-                    Couple Image 2 (Portrait Polaroid) URL
-                  </label>
-                  <input
-                    type="text"
-                    value={tempSettings.couplePortraitImg}
-                    onChange={(e) => setTempSettings({ ...tempSettings, couplePortraitImg: e.target.value })}
-                    className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-200 text-xs focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
-                    Background Instrumental Music MP3 URL
-                  </label>
-                  <input
-                    type="text"
-                    value={tempSettings.bgMusicUrl}
-                    onChange={(e) => setTempSettings({ ...tempSettings, bgMusicUrl: e.target.value })}
-                    className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-200 text-xs focus:outline-none"
-                  />
-                  <span className="block text-[9px] text-stone-500 mt-1">
-                    * Supports custom royalty-free MP3 URLs to personalize the music atmosphere.
-                  </span>
-                </div>
-
-              </div>
-            )}
-
-            {/* TAB D: host Admin RSVP Tracker */}
-            {activeTab === 'rsvps' && (
-              <div className="space-y-4 animate-fade-in text-stone-200">
-                
-                <div className="flex items-center justify-between border-b border-stone-800 pb-2">
-                  <h4 className="font-serif text-sm font-bold text-amber-400 uppercase tracking-wider">
-                    RSVPs Tracker
-                  </h4>
-                  <button
-                    onClick={() => {
-                      if (window.confirm("Are you sure you want to clear all RSVPs?")) {
-                        setRsvps([]);
-                        localStorage.removeItem('wedding_rsvps');
-                      }
-                    }}
-                    className="text-[9px] font-semibold uppercase tracking-widest text-red-500 hover:text-red-400"
-                  >
-                    Clear All
-                  </button>
-                </div>
-
-                {rsvps.length === 0 ? (
-                  
-                  <div className="text-center py-10 bg-stone-900/40 rounded-2xl border border-stone-800">
-                    <p className="text-xs text-stone-500">
-                      No RSVPs have been submitted yet. Responses will show up here live!
-                    </p>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
+                      Venue Address
+                    </label>
+                    <input
+                      type="text"
+                      value={tempSettings.venueAddress}
+                      onChange={(e) => setTempSettings({ ...tempSettings, venueAddress: e.target.value })}
+                      className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-100 text-sm focus:outline-none"
+                    />
                   </div>
 
-                ) : (
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
+                      Google Maps Navigation Link
+                    </label>
+                    <input
+                      type="url"
+                      value={tempSettings.venueGoogleLink}
+                      onChange={(e) => setTempSettings({ ...tempSettings, venueGoogleLink: e.target.value })}
+                      className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-100 text-xs focus:outline-none"
+                    />
+                  </div>
 
-                  <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
-                    {rsvps.map(r => (
-                      <div
-                        key={r.id}
-                        className={`p-4 bg-stone-900 border ${r.attendance === 'attending' ? 'border-emerald-900/60' : 'border-rose-900/60'} rounded-xl space-y-2`}
+                </div>
+              )}
+
+              {/* TAB C: Themes & Custom Background Music/Images */}
+              {activeTab === 'theme' && (
+                <div className="space-y-5 animate-fade-in">
+                  
+                  <h4 className="font-serif text-sm font-bold text-amber-400 uppercase tracking-wider border-b border-stone-800 pb-2">
+                    Select Design Theme Colors
+                  </h4>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {Object.entries(themes).map(([key, value]) => (
+                      <button
+                        key={key}
+                        onClick={() => setTempSettings({ ...tempSettings, theme: key })}
+                        className={`p-3 rounded-xl border text-left transition-all duration-300 flex flex-col gap-1 ${tempSettings.theme === key ? 'bg-stone-800 border-amber-400 shadow-md shadow-amber-400/5' : 'border-stone-800 hover:bg-stone-900/60 text-stone-400'}`}
                       >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="font-serif text-sm font-semibold text-white block">
-                              {r.name}
-                            </span>
-                            <span className="text-[10px] text-stone-500">
-                              {r.dateString}
-                            </span>
-                          </div>
-                          <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest ${r.attendance === 'attending' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
-                            {r.attendance === 'attending' ? 'Attending' : 'Declined'}
-                          </span>
+                        <span className="text-xs font-bold text-white">{value.name}</span>
+                        <div className="flex gap-1.5 mt-1">
+                          <div className={`w-3.5 h-3.5 rounded-full border border-stone-700/60 ${
+                            key === 'goldLight' ? 'bg-[#f7f4eb]' :
+                            key === 'goldDark' ? 'bg-stone-950' :
+                            key === 'emerald' ? 'bg-emerald-800' :
+                            key === 'crimson' ? 'bg-rose-900' :
+                            key === 'sapphire' ? 'bg-blue-900' :
+                            key === 'flora' ? 'bg-[#E8ECE7]' : 'bg-pink-900'
+                          }`}></div>
+                          <div className={`w-3.5 h-3.5 rounded-full ${
+                            key === 'goldLight' ? 'bg-[#b8953a]' :
+                            key === 'goldDark' ? 'bg-[#e5c158]' :
+                            key === 'emerald' ? 'bg-amber-400' :
+                            key === 'crimson' ? 'bg-yellow-400' :
+                            key === 'sapphire' ? 'bg-amber-300' :
+                            key === 'flora' ? 'bg-[#5A7C54]' : 'bg-yellow-200'
+                          }`}></div>
                         </div>
-
-                        <div className="grid grid-cols-2 gap-2 text-[10px] text-stone-400 pt-1 border-t border-stone-800/40">
-                          <div>
-                            <i className="fa-solid fa-users text-stone-600 mr-1.5"></i>
-                            {r.guestsCount} Guests
-                          </div>
-                          <div>
-                            <i className="fa-solid fa-phone text-stone-600 mr-1.5"></i>
-                            {r.phone}
-                          </div>
-                        </div>
-
-                        {r.message && (
-                          <p className="text-xs text-amber-300/80 italic bg-stone-950/40 p-2 rounded-lg mt-1 select-none">
-                            "{r.message}"
-                          </p>
-                        )}
-
-                      </div>
+                      </button>
                     ))}
                   </div>
 
-                )}
+                  <h4 className="font-serif text-sm font-bold text-amber-400 uppercase tracking-wider border-b border-stone-800 pb-2 pt-2">
+                    Media & Background Audio Customization
+                  </h4>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
+                      Couple Image 1 (Outdoor Polaroid) URL
+                    </label>
+                    <input
+                      type="text"
+                      value={tempSettings.coupleOutdoorImg}
+                      onChange={(e) => setTempSettings({ ...tempSettings, coupleOutdoorImg: e.target.value })}
+                      className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-200 text-xs focus:outline-none"
+                    />
+                    <span className="block text-[9px] text-stone-500 mt-1">
+                      * You can paste any high-quality image URL or leave it as default.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
+                      Couple Image 2 (Portrait Polaroid) URL
+                    </label>
+                    <input
+                      type="text"
+                      value={tempSettings.couplePortraitImg}
+                      onChange={(e) => setTempSettings({ ...tempSettings, couplePortraitImg: e.target.value })}
+                      className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-200 text-xs focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-stone-400 font-semibold mb-2">
+                      Background Instrumental Music MP3 URL
+                    </label>
+                    <input
+                      type="text"
+                      value={tempSettings.bgMusicUrl}
+                      onChange={(e) => setTempSettings({ ...tempSettings, bgMusicUrl: e.target.value })}
+                      className="w-full bg-stone-900 border border-stone-800 focus:border-amber-500 rounded-lg px-3 py-2 text-stone-200 text-xs focus:outline-none"
+                    />
+                    <span className="block text-[9px] text-stone-500 mt-1">
+                      * Supports custom royalty-free MP3 URLs to personalize the music atmosphere.
+                    </span>
+                  </div>
+
+                </div>
+              )}
+
+              {/* TAB D: host Admin RSVP Tracker */}
+              {activeTab === 'rsvps' && (
+                <div className="space-y-4 animate-fade-in text-stone-200">
+                  
+                  <div className="flex items-center justify-between border-b border-stone-800 pb-2">
+                    <h4 className="font-serif text-sm font-bold text-amber-400 uppercase tracking-wider">
+                      RSVPs Tracker
+                    </h4>
+                    <button
+                      onClick={async () => {
+                        if (window.confirm("Are you sure you want to clear all RSVPs?")) {
+                          try {
+                            const querySnapshot = await getDocs(collection(db, "rsvps"));
+                            const deletePromises = [];
+                            querySnapshot.forEach((docSnap) => {
+                              deletePromises.push(deleteDoc(doc(db, "rsvps", docSnap.id)));
+                            });
+                            await Promise.all(deletePromises);
+                            setRsvps([]);
+                          } catch (err) {
+                            console.error("Failed to clear RSVPs in Firestore:", err);
+                          }
+                        }
+                      }}
+                      className="text-[9px] font-semibold uppercase tracking-widest text-red-500 hover:text-red-400"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+
+                  {rsvps.length === 0 ? (
+                    
+                    <div className="text-center py-10 bg-stone-900/40 rounded-2xl border border-stone-800">
+                      <p className="text-xs text-stone-500">
+                        No RSVPs have been submitted yet. Responses will show up here live!
+                      </p>
+                    </div>
+
+                  ) : (
+
+                    <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
+                      {rsvps.map(r => (
+                        <div
+                          key={r.id}
+                          className={`p-4 bg-stone-900 border ${r.attendance === 'attending' ? 'border-emerald-900/60' : 'border-rose-900/60'} rounded-xl space-y-2`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="font-serif text-sm font-semibold text-white block">
+                                {r.name}
+                              </span>
+                              <span className="text-[10px] text-stone-500">
+                                {r.dateString}
+                              </span>
+                            </div>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest ${r.attendance === 'attending' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
+                              {r.attendance === 'attending' ? 'Attending' : 'Declined'}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-[10px] text-stone-400 pt-1 border-t border-stone-800/40">
+                            <div>
+                              <i className="fa-solid fa-users text-stone-600 mr-1.5"></i>
+                              {r.guestsCount} Guests
+                            </div>
+                            <div>
+                              <i className="fa-solid fa-phone text-stone-600 mr-1.5"></i>
+                              {r.phone}
+                            </div>
+                          </div>
+
+                          {r.message && (
+                            <p className="text-xs text-amber-300/80 italic bg-stone-950/40 p-2 rounded-lg mt-1 select-none">
+                              "{r.message}"
+                            </p>
+                          )}
+
+                        </div>
+                      ))}
+                    </div>
+
+                  )}
+
+                </div>
+              )}
+
+            </div>
+
+            {/* Settings Actions Footer (Only visible on non-RSVP tabs) */}
+            {activeTab !== 'rsvps' && (
+              <div className="p-6 border-t border-stone-800 bg-stone-950 grid grid-cols-2 gap-4">
+                
+                <button
+                  onClick={handleResetSettings}
+                  className="w-full py-3 rounded-xl border border-stone-800 hover:border-stone-700 font-semibold text-xs uppercase tracking-widest text-stone-400 hover:text-white transition-colors"
+                >
+                  Reset Default
+                </button>
+
+                <button
+                  onClick={handleApplySettings}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-stone-950 font-bold text-xs uppercase tracking-widest shadow-lg shadow-amber-500/10 transition-transform duration-300 hover:scale-[1.02]"
+                >
+                  Apply Changes
+                </button>
 
               </div>
             )}
 
           </div>
-
-          {/* Settings Actions Footer (Only visible on non-RSVP tabs) */}
-          {activeTab !== 'rsvps' && (
-            <div className="p-6 border-t border-stone-800 bg-stone-950 grid grid-cols-2 gap-4">
-              
-              <button
-                onClick={handleResetSettings}
-                className="w-full py-3 rounded-xl border border-stone-800 hover:border-stone-700 font-semibold text-xs uppercase tracking-widest text-stone-400 hover:text-white transition-colors"
-              >
-                Reset Default
-              </button>
-
-              <button
-                onClick={handleApplySettings}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-stone-950 font-bold text-xs uppercase tracking-widest shadow-lg shadow-amber-500/10 transition-transform duration-300 hover:scale-[1.02]"
-              >
-                Apply Changes
-              </button>
-
-            </div>
-          )}
-
         </div>
-      </div>
+      )}
 
     </div>
   );
