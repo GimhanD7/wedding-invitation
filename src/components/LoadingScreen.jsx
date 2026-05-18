@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 function LoadingScreen({ brideName, groomName, onEnter, onInteraction }) {
-  const [progress, setProgress] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -18,53 +17,36 @@ function LoadingScreen({ brideName, groomName, onEnter, onInteraction }) {
       const size = Math.random() * 0.4 + 0.4; // scale from 0.4 to 0.8
       const speed = Math.random() * 12 + 12; // duration from 12s to 24s
       const delay = Math.random() * -12; // pre-delay to distribute them immediately
-      const startY = Math.random() * 40 + 15; // vertical position from 15% to 55%
-      const opacity = Math.random() * 0.5 + 0.4;
-      const flapSpeed = size * 0.5;
-
+      const top = Math.random() * 60 + 10; // y-axis percentage
+      
       return {
         id: idx,
         size,
         speed,
         delay,
-        startY,
-        opacity,
-        flapSpeed
+        top
       };
     });
     setBirds(generatedBirds);
 
-    // Simulate progress load to 100% over 5 seconds (5000ms)
-    const duration = 5000;
-    const intervalTime = 50;
-    const totalSteps = duration / intervalTime;
-    let currentStep = 0;
+    // Initial birds audio element config
+    birdsAudioRef.current = new Audio("https://archive.org/download/Red_Library_Animals_Birds/R01-24-Birds%20Chirping%20Outside.mp3");
+    birdsAudioRef.current.loop = true;
 
-    const interval = setInterval(() => {
-      currentStep++;
-      const progressPercent = Math.min((currentStep / totalSteps) * 100, 100);
-      setProgress(Math.floor(progressPercent));
+    // Simulate standard invitation door load pacing (5 seconds loading screen)
+    const loadTimeout = setTimeout(() => {
+      setIsLoaded(true);
+    }, 5000);
 
-      if (currentStep >= totalSteps) {
-        clearInterval(interval);
-        setIsLoaded(true);
+    return () => {
+      clearTimeout(loadTimeout);
+      if (birdsAudioRef.current) {
+        birdsAudioRef.current.pause();
       }
-    }, intervalTime);
-
-    return () => clearInterval(interval);
+    };
   }, []);
 
-  // Auto-reveal / open doors once loaded (exactly after 5 seconds of loading)
-  useEffect(() => {
-    if (isLoaded) {
-      const timeout = setTimeout(() => {
-        handleReveal();
-      }, 300); // 300ms delay for premium visual pacing before doors slide open
-      return () => clearTimeout(timeout);
-    }
-  }, [isLoaded]);
-
-  const handleReveal = () => {
+  const handleReveal = useCallback(() => {
     if (hasInteracted) return;
     setHasInteracted(true);
     
@@ -90,7 +72,17 @@ function LoadingScreen({ brideName, groomName, onEnter, onInteraction }) {
         onEnter();
       }
     }, 1300); // Allow double door slide transition to complete
-  };
+  }, [hasInteracted, onInteraction, onEnter]);
+
+  // Auto-reveal / open doors once loaded (exactly after 5 seconds of loading)
+  useEffect(() => {
+    if (isLoaded) {
+      const timeout = setTimeout(() => {
+        handleReveal();
+      }, 300); // 300ms delay for premium visual pacing before doors slide open
+      return () => clearTimeout(timeout);
+    }
+  }, [isLoaded, handleReveal]);
 
   // Unblock browser audios on touch/click anywhere on the loading screen before it opens
   const handleScreenInteraction = () => {
