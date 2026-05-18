@@ -190,7 +190,7 @@ function App() {
     guestName: 'Mr. / Mr. & Mrs. / Ms. / Family',
     coupleOutdoorImg: 'images/couple_outdoor.png',
     couplePortraitImg: 'images/couple_portrait.png',
-    bgMusicUrl: 'https://www.chosic.com/wp-content/uploads/2021/07/In-love-again.mp3',
+    bgMusicUrl: 'https://archive.org/download/jamendo-375578/01-1628418-DHDMusic-Wedding%20Piano.mp3',
     customColorPrimary: '#5a7c54',
     customColorSecondary: '#b8953a'
   });
@@ -347,8 +347,19 @@ function App() {
       if (docSnap.exists()) {
         const cloudData = docSnap.data();
         // Merge Firestore cloud configurations with URL guest parameter configurations
-        setSettings(prev => ({ ...prev, ...cloudData, guestName: urlSettings.guestName || cloudData.guestName || prev.guestName }));
-        setTempSettings(prev => ({ ...prev, ...cloudData, guestName: urlSettings.guestName || cloudData.guestName || prev.guestName }));
+        // URL guest parameters must ALWAYS take priority over Firestore configurations
+        setSettings(prev => ({ 
+          ...prev, 
+          ...cloudData, 
+          ...urlSettings, 
+          guestName: urlSettings.guestName || cloudData.guestName || prev.guestName 
+        }));
+        setTempSettings(prev => ({ 
+          ...prev, 
+          ...cloudData, 
+          ...urlSettings, 
+          guestName: urlSettings.guestName || cloudData.guestName || prev.guestName 
+        }));
       } else {
         const initialDefault = {
           brideName: '',
@@ -361,7 +372,7 @@ function App() {
           guestName: 'Mr. / Mr. & Mrs. / Ms. / Family',
           coupleOutdoorImg: 'images/couple_outdoor.png',
           couplePortraitImg: 'images/couple_portrait.png',
-          bgMusicUrl: 'https://www.chosic.com/wp-content/uploads/2021/07/In-love-again.mp3',
+          bgMusicUrl: 'https://archive.org/download/jamendo-375578/01-1628418-DHDMusic-Wedding%20Piano.mp3',
           customColorPrimary: '#5a7c54',
           customColorSecondary: '#b8953a'
         };
@@ -411,6 +422,17 @@ function App() {
       unsubWishes();
     };
   }, []);
+
+  // --- DYNAMIC DOCUMENT TITLE UPDATER ---
+  useEffect(() => {
+    const bride = settings.brideName && settings.brideName.trim() ? settings.brideName.trim() : '';
+    const groom = settings.groomName && settings.groomName.trim() ? settings.groomName.trim() : '';
+    if (bride && groom) {
+      document.title = `${bride} & ${groom} - Our Wedding Invitation`;
+    } else {
+      document.title = "Our Wedding Invitation";
+    }
+  }, [settings.brideName, settings.groomName]);
 
   // --- DYNAMIC MUSIC LOADER ---
   useEffect(() => {
@@ -712,8 +734,8 @@ function App() {
 
   const currentTheme = themes[settings.theme] || themes.emerald;
   const isLight = settings.theme === 'goldLight' || settings.theme === 'flora';
-  const brideInitial = settings.brideName ? settings.brideName.charAt(0) : 'B';
-  const groomInitial = settings.groomName ? settings.groomName.charAt(0) : 'G';
+  const brideInitial = settings.brideName && settings.brideName.trim() ? settings.brideName.trim().charAt(0) : 'B';
+  const groomInitial = settings.groomName && settings.groomName.trim() ? settings.groomName.trim().charAt(0) : 'G';
 
   // Format Date beautifully
   const getFormattedDate = () => {
@@ -846,8 +868,8 @@ function App() {
       
       {showLoading && (
         <LoadingScreen 
-          brideName={settings.brideName} 
-          groomName={settings.groomName} 
+          brideName={settings.brideName && settings.brideName.trim() ? settings.brideName.trim() : 'Bride'} 
+          groomName={settings.groomName && settings.groomName.trim() ? settings.groomName.trim() : 'Groom'} 
           onInteraction={() => {
             // Synchronously pre-play and pause both audios on the first touch gesture to unblock browser autoplay restrictions!
             if (audioRef.current) {
@@ -978,30 +1000,60 @@ function App() {
         )}
 
         {/* Floating Top Monogram Badge */}
-        <div className="w-20 h-20 rounded-full border-2 border-amber-400/50 flex items-center justify-center bg-stone-900/50 shadow-lg shadow-amber-400/10 mb-8 fade-in-up-1 relative group overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/10 via-transparent to-amber-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          <span className="font-serif text-2xl font-bold tracking-widest text-amber-400 animate-gold-glow">
+        <div className={`w-20 h-20 rounded-full border-2 flex items-center justify-center shadow-lg mb-8 fade-in-up-1 relative group overflow-hidden ${
+          settings.theme === 'flora' 
+            ? 'border-[#5A7C54]/50 bg-white/70 shadow-[#5A7C54]/5' 
+            : settings.theme === 'goldLight'
+              ? 'border-[#b8953a]/50 bg-white/70 shadow-[#b8953a]/5'
+              : 'border-amber-400/50 bg-stone-900/50 shadow-amber-400/10'
+        }`}>
+          <div className={`absolute inset-0 bg-gradient-to-tr opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${
+            settings.theme === 'flora' 
+              ? 'from-[#5A7C54]/10 via-transparent to-[#5A7C54]/10' 
+              : settings.theme === 'goldLight'
+                ? 'from-[#b8953a]/10 via-transparent to-[#b8953a]/10'
+                : 'from-amber-500/10 via-transparent to-amber-500/10'
+          }`}></div>
+          <span className={`font-serif text-2xl font-bold tracking-widest ${
+            settings.theme === 'flora' 
+              ? 'text-[#5A7C54]' 
+              : settings.theme === 'goldLight'
+                ? 'text-[#b8953a]'
+                : 'text-amber-400 animate-gold-glow'
+          }`}>
             {brideInitial} & {groomInitial}
           </span>
         </div>
 
         {/* Invitation Text */}
-        <p className="font-serif text-sm md:text-base uppercase tracking-[0.3em] text-amber-400/90 mb-4 fade-in-up-1">
+        <p className={`font-serif text-sm md:text-base uppercase tracking-[0.3em] mb-4 fade-in-up-1 ${
+          settings.theme === 'flora' ? 'text-[#5A7C54]/90' : settings.theme === 'goldLight' ? 'text-[#b8953a]/90' : 'text-amber-400/90'
+        }`}>
           Save the Date
         </p>
 
         {/* Large Elegant Couple Names */}
         <div className="space-y-4 max-w-4xl px-4 select-none mb-6">
-          <h1 className="font-cursive text-7xl md:text-9xl text-amber-400 leading-tight drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)] animate-gold-glow fade-in-up-2">
-            {settings.brideName || 'Bride'}
+          <h1 className={`font-cursive text-7xl md:text-9xl leading-tight drop-shadow-[0_4px_6px_rgba(0,0,0,0.15)] fade-in-up-2 ${
+            settings.theme === 'flora' ? 'text-[#5A7C54]' : settings.theme === 'goldLight' ? 'text-[#b8953a]' : 'text-amber-400 animate-gold-glow'
+          }`}>
+            {settings.brideName && settings.brideName.trim() ? settings.brideName.trim() : 'Bride'}
           </h1>
           <div className="flex items-center justify-center gap-6 fade-in-up-3">
-            <div className="h-[1px] w-20 bg-gradient-to-r from-transparent to-amber-400/40"></div>
-            <span className="font-serif text-3xl md:text-4xl text-amber-200/90 font-light">&</span>
-            <div className="h-[1px] w-20 bg-gradient-to-l from-transparent to-amber-400/40"></div>
+            <div className={`h-[1px] w-20 bg-gradient-to-r from-transparent ${
+              settings.theme === 'flora' ? 'to-[#5A7C54]/40' : settings.theme === 'goldLight' ? 'to-[#b8953a]/40' : 'to-amber-400/40'
+            }`}></div>
+            <span className={`font-serif text-3xl md:text-4xl font-light ${
+              settings.theme === 'flora' ? 'text-[#5A7C54]/90' : settings.theme === 'goldLight' ? 'text-[#b8953a]/90' : 'text-amber-200/90'
+            }`}>&</span>
+            <div className={`h-[1px] w-20 bg-gradient-to-l from-transparent ${
+              settings.theme === 'flora' ? 'to-[#5A7C54]/40' : settings.theme === 'goldLight' ? 'to-[#b8953a]/40' : 'to-amber-400/40'
+            }`}></div>
           </div>
-          <h1 className="font-cursive text-7xl md:text-9xl text-amber-400 leading-tight drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)] animate-gold-glow fade-in-up-4">
-            {settings.groomName || 'Groom'}
+          <h1 className={`font-cursive text-7xl md:text-9xl leading-tight drop-shadow-[0_4px_6px_rgba(0,0,0,0.15)] fade-in-up-4 ${
+            settings.theme === 'flora' ? 'text-[#5A7C54]' : settings.theme === 'goldLight' ? 'text-[#b8953a]' : 'text-amber-400 animate-gold-glow'
+          }`}>
+            {settings.groomName && settings.groomName.trim() ? settings.groomName.trim() : 'Groom'}
           </h1>
         </div>
 
@@ -1035,7 +1087,9 @@ function App() {
             onClick={() => {
               // Trigger Add to Calendar action
               const eventDateStr = settings.weddingDate.replace(/[-:]/g, '');
-              const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(settings.brideName + ' & ' + settings.groomName + ' Wedding')}&dates=${eventDateStr}/${eventDateStr}&details=${encodeURIComponent('We invite you to celebrate our union!')}&location=${encodeURIComponent(settings.venueName + ', ' + settings.venueAddress)}`;
+              const bride = settings.brideName && settings.brideName.trim() ? settings.brideName.trim() : 'Bride';
+              const groom = settings.groomName && settings.groomName.trim() ? settings.groomName.trim() : 'Groom';
+              const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(bride + ' & ' + groom + ' Wedding')}&dates=${eventDateStr}/${eventDateStr}&details=${encodeURIComponent('We invite you to celebrate our union!')}&location=${encodeURIComponent(settings.venueName + ', ' + settings.venueAddress)}`;
               window.open(calendarUrl, '_blank');
             }}
             className={`px-6 py-3 rounded-full text-xs uppercase tracking-widest font-semibold transition-all duration-300 hover:scale-105 ${currentTheme.btnBg}`}
