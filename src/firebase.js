@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 
 // Web app's Firebase configuration
 const firebaseConfig = {
@@ -15,5 +15,8 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Cloud Firestore and export
-export const db = getFirestore(app);
+// Initialize Cloud Firestore with robust long-polling and XHR stream transport to bypass Vercel CORS constraints
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+  useFetchStreams: false
+});
