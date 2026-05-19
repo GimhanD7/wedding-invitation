@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
-function LoadingScreen({ brideName, groomName, onEnter, onInteraction }) {
+function LoadingScreen({ brideName, groomName, settings = {}, onEnter, onInteraction }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -94,13 +94,56 @@ function LoadingScreen({ brideName, groomName, onEnter, onInteraction }) {
     }
   };
 
+  const isDark = ['goldDark', 'emerald', 'crimson', 'sapphire', 'custom'].includes(settings.theme);
+
+  // Dynamic theme highlight color
+  const primaryColor = settings.theme === 'custom' ? (settings.customColorSecondary || '#b8953a') : 
+                       (settings.theme === 'flora' ? '#5A7C54' : 
+                        (settings.theme === 'emerald' ? '#fbbf24' : 
+                         (settings.theme === 'crimson' ? '#facc15' : 
+                          (settings.theme === 'sapphire' ? '#fde047' : '#b8953a'))));
+
+  // Door styles mapping
+  const doorTextColor = isDark ? 'text-amber-100' : 'text-stone-850';
+  const doorSubtextColor = isDark ? 'text-amber-500/80' : 'text-[#5A7C54]/80';
+  const doorInitialBg = isDark ? 'bg-stone-950/60' : 'bg-white/80';
+
+  const doorBgGradientClass = settings.theme === 'flora' 
+    ? 'from-[#F3F6F2] via-[#E8ECE7] to-[#DBE2D9]' 
+    : (settings.theme === 'goldLight' 
+      ? 'from-[#fcfbfa] via-[#f7f4eb] to-[#f0ebdb]'
+      : (settings.theme === 'emerald' 
+        ? 'from-[#022c22] via-[#043e33] to-[#011c15]'
+        : (settings.theme === 'crimson' 
+          ? 'from-[#3b0712] via-[#4c0519] to-[#25020a]'
+          : (settings.theme === 'sapphire' 
+            ? 'from-[#0f172a] via-[#1e1b4b] to-[#020617]'
+            : 'from-[#020b12] via-[#051c2a] to-[#01090f]'))));
+
+  const getDoorBackgroundStyle = (position) => {
+    let backgroundStyle = {};
+    if (settings.loadingBgImg) {
+      backgroundStyle = {
+        backgroundImage: `linear-gradient(rgba(${isDark ? '0, 0, 0, 0.82' : '255, 255, 255, 0.75'}), rgba(${isDark ? '0, 0, 0, 0.88' : '255, 255, 255, 0.85'})), url(${settings.loadingBgImg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: position === 'left' ? 'center right' : 'center left'
+      };
+    } else if (settings.theme === 'custom' && settings.customColorPrimary) {
+      backgroundStyle = {
+        background: `radial-gradient(circle at ${position === 'left' ? 'right' : 'left'} center, ${settings.customColorPrimary}25, #0c0a09)`
+      };
+    }
+    return backgroundStyle;
+  };
+
   return (
     <div 
       onClick={handleScreenInteraction}
       onTouchStart={handleScreenInteraction}
-      className="fixed inset-0 z-50 overflow-hidden select-none bg-[#01090f]"
+      className={`fixed inset-0 z-50 overflow-hidden select-none transition-colors duration-500 ${
+        isDark ? 'bg-[#01090f]' : 'bg-stone-100'
+      }`}
     >
-      {/* Self-contained CSS styles for double doors, wing flapping, sway, and neon shadows */}
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes flyRight {
           0% { transform: translateX(-15vw) translateY(0); }
@@ -156,7 +199,6 @@ function LoadingScreen({ brideName, groomName, onEnter, onInteraction }) {
           animation: floatSlow 6s ease-in-out infinite;
         }
         
-        /* 3D door-opening perspective effects */
         .door-perspective {
           perspective: 1200px;
         }
@@ -173,11 +215,11 @@ function LoadingScreen({ brideName, groomName, onEnter, onInteraction }) {
       {/* BACKGROUND UNDER-DOORS LAYER (Revealed as doors open) */}
       <div className="absolute inset-0 z-10 opacity-60 pointer-events-none flex flex-col items-center justify-center">
         {/* Sky Sparkles / Stars */}
-        <div className="absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:24px_24px] opacity-30"></div>
+        <div className={`absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:24px_24px] ${isDark ? 'opacity-35' : 'opacity-10'}`}></div>
         
         {/* Golden Crescent Moon high in the sky */}
         <div className="absolute top-[12%] right-[12%] w-12 h-12 rounded-full bg-gradient-to-tr from-amber-100 to-yellow-50 shadow-[0_0_30px_rgba(251,191,36,0.2)] pointer-events-none">
-          <div className="absolute w-10 h-10 rounded-full bg-[#01090f] -top-1 -left-2"></div>
+          <div className={`absolute w-10 h-10 rounded-full -top-1 -left-2 ${isDark ? 'bg-[#01090f]' : 'bg-stone-100'}`}></div>
         </div>
 
         {/* Large Rising Glowing Golden Aura */}
@@ -192,11 +234,11 @@ function LoadingScreen({ brideName, groomName, onEnter, onInteraction }) {
               style={{
                 animationDuration: `${bird.speed}s`,
                 animationDelay: `${bird.delay}s`,
-                top: `${bird.startY}%`,
-                opacity: bird.opacity,
+                top: `${bird.top}%`,
+                opacity: 0.45,
                 transform: `scale(${bird.size})`,
                 left: '-10%',
-                '--flap-duration': `${bird.flapSpeed}s`
+                '--flap-duration': `0.8s`
               }}
             >
               <svg className="w-10 h-10 text-amber-200/60 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" viewBox="0 0 100 100" fill="currentColor">
@@ -228,25 +270,38 @@ function LoadingScreen({ brideName, groomName, onEnter, onInteraction }) {
         
         {/* LEFT DOOR PANEL */}
         <div 
-          className={`w-1/2 h-full bg-gradient-to-b from-[#020b12] via-[#051c2a] to-[#01090f] border-r-2 border-amber-500/30 flex flex-col items-end justify-center relative transition-transform duration-[1200ms] cubic-bezier(0.77, 0, 0.175, 1) pointer-events-auto ${
+          className={`w-1/2 h-full bg-gradient-to-b ${doorBgGradientClass} border-r flex flex-col items-end justify-center relative transition-transform duration-[1200ms] cubic-bezier(0.77, 0, 0.175, 1) pointer-events-auto ${
             isEntering ? '-translate-x-full' : 'translate-x-0'
           }`}
+          style={{ 
+            borderColor: `${primaryColor}30`,
+            ...getDoorBackgroundStyle('left')
+          }}
         >
           {/* Left Door Details & Gold Filigree lines */}
-          <div className="absolute inset-y-10 left-10 right-0 border-t border-b border-l border-amber-500/10 rounded-l-2xl pointer-events-none"></div>
-          <div className="absolute top-1/2 -translate-y-1/2 right-4 w-[1px] h-3/4 bg-gradient-to-b from-transparent via-amber-500/15 to-transparent"></div>
+          <div 
+            className="absolute inset-y-10 left-10 right-0 border-t border-b border-l rounded-l-2xl pointer-events-none"
+            style={{ borderColor: `${primaryColor}20` }}
+          ></div>
+          <div 
+            className="absolute top-1/2 -translate-y-1/2 right-0 w-[1px] h-3/4 bg-gradient-to-b"
+            style={{ backgroundImage: `linear-gradient(to bottom, transparent, ${primaryColor}20, transparent)` }}
+          ></div>
           
           {/* Left half of loading welcome cards & initials */}
-          <div className="pr-6 text-right max-w-[240px] float-slow-content">
-            <div className="w-14 h-14 rounded-full border border-amber-500/25 flex items-center justify-end pr-3 bg-stone-950/60 shadow-lg shadow-amber-500/5 ml-auto mb-6 relative overflow-hidden">
-              <span className="font-serif text-lg font-bold tracking-wider text-amber-400">
+          <div className="pr-6 text-right max-w-[240px] float-slow-content z-10">
+            <div 
+              className={`w-14 h-14 rounded-full border ${doorInitialBg} flex items-center justify-end pr-3 shadow-lg mb-6 relative overflow-hidden`}
+              style={{ borderColor: `${primaryColor}40` }}
+            >
+              <span className="font-serif text-lg font-bold tracking-wider" style={{ color: primaryColor }}>
                 {brideName ? brideName.charAt(0) : ''}
               </span>
             </div>
-            <p className="font-serif text-[9px] uppercase tracking-[0.35em] text-amber-500/80 mb-2">
+            <p className={`font-serif text-[9px] uppercase tracking-[0.35em] mb-2 ${doorSubtextColor}`}>
               Warmly
             </p>
-            <h2 className="font-serif text-xl sm:text-2xl text-amber-100 font-light truncate drop-shadow-md">
+            <h2 className={`font-serif text-xl sm:text-2xl font-light truncate drop-shadow-md ${doorTextColor}`}>
               {brideName}
             </h2>
           </div>
@@ -254,25 +309,38 @@ function LoadingScreen({ brideName, groomName, onEnter, onInteraction }) {
 
         {/* RIGHT DOOR PANEL */}
         <div 
-          className={`w-1/2 h-full bg-gradient-to-b from-[#020b12] via-[#051c2a] to-[#01090f] border-l-2 border-amber-500/30 flex flex-col items-start justify-center relative transition-transform duration-[1200ms] cubic-bezier(0.77, 0, 0.175, 1) pointer-events-auto ${
+          className={`w-1/2 h-full bg-gradient-to-b ${doorBgGradientClass} border-l flex flex-col items-start justify-center relative transition-transform duration-[1200ms] cubic-bezier(0.77, 0, 0.175, 1) pointer-events-auto ${
             isEntering ? 'translate-x-full' : 'translate-x-0'
           }`}
+          style={{ 
+            borderColor: `${primaryColor}30`,
+            ...getDoorBackgroundStyle('right')
+          }}
         >
           {/* Right Door Details & Gold Filigree lines */}
-          <div className="absolute inset-y-10 right-10 left-0 border-t border-b border-r border-amber-500/10 rounded-r-2xl pointer-events-none"></div>
-          <div className="absolute top-1/2 -translate-y-1/2 left-4 w-[1px] h-3/4 bg-gradient-to-b from-transparent via-amber-500/15 to-transparent"></div>
+          <div 
+            className="absolute inset-y-10 right-10 left-0 border-t border-b border-r rounded-r-2xl pointer-events-none"
+            style={{ borderColor: `${primaryColor}20` }}
+          ></div>
+          <div 
+            className="absolute top-1/2 -translate-y-1/2 left-0 w-[1px] h-3/4 bg-gradient-to-b"
+            style={{ backgroundImage: `linear-gradient(to bottom, transparent, ${primaryColor}20, transparent)` }}
+          ></div>
           
           {/* Right half of loading welcome cards & initials */}
-          <div className="pl-6 text-left max-w-[240px] float-slow-content">
-            <div className="w-14 h-14 rounded-full border border-amber-500/25 flex items-center justify-start pl-3 bg-stone-950/60 shadow-lg shadow-amber-500/5 mb-6 relative overflow-hidden">
-              <span className="font-serif text-lg font-bold tracking-wider text-amber-400">
+          <div className="pl-6 text-left max-w-[240px] float-slow-content z-10">
+            <div 
+              className={`w-14 h-14 rounded-full border ${doorInitialBg} flex items-center justify-start pl-3 shadow-lg mb-6 relative overflow-hidden`}
+              style={{ borderColor: `${primaryColor}40` }}
+            >
+              <span className="font-serif text-lg font-bold tracking-wider" style={{ color: primaryColor }}>
                 {groomName ? groomName.charAt(0) : ''}
               </span>
             </div>
-            <p className="font-serif text-[9px] uppercase tracking-[0.35em] text-amber-500/80 mb-2">
+            <p className={`font-serif text-[9px] uppercase tracking-[0.35em] mb-2 ${doorSubtextColor}`}>
               Invited
             </p>
-            <h2 className="font-serif text-xl sm:text-2xl text-amber-100 font-light truncate drop-shadow-md">
+            <h2 className={`font-serif text-xl sm:text-2xl font-light truncate drop-shadow-md ${doorTextColor}`}>
               {groomName}
             </h2>
           </div>
@@ -283,16 +351,27 @@ function LoadingScreen({ brideName, groomName, onEnter, onInteraction }) {
           isEntering ? 'opacity-0 pointer-events-none scale-95' : 'opacity-100'
         }`}>
           {/* Central Wax Seal Emblem & Divider */}
-          <div className="absolute h-full w-[2px] bg-gradient-to-b from-amber-500/0 via-amber-500/25 to-amber-500/0 pointer-events-none"></div>
+          <div 
+            className="absolute h-full w-[1px] bg-gradient-to-b pointer-events-none"
+            style={{ backgroundImage: `linear-gradient(to bottom, transparent, ${primaryColor}25, transparent)` }}
+          ></div>
           
-          <div className="w-20 h-20 rounded-full border-2 border-amber-500/40 flex items-center justify-center bg-[#010c14] shadow-[0_0_30px_rgba(245,158,11,0.15)] relative scale-110 mb-8 float-slow-content">
-            <div className="absolute inset-1 rounded-full border border-amber-500/10"></div>
-            <span className="font-serif text-xl font-bold tracking-wider text-amber-400 select-none">
+          <div 
+            className={`w-20 h-20 rounded-full border-2 flex items-center justify-center relative scale-110 mb-8 float-slow-content shadow-xl`}
+            style={{ 
+              borderColor: primaryColor,
+              backgroundColor: isDark ? '#020b12' : '#f7f4eb',
+              boxShadow: `0 0 30px ${primaryColor}25`
+            }}
+          >
+            <div className="absolute inset-1 rounded-full border opacity-20" style={{ borderColor: primaryColor }}></div>
+            <span 
+              className="font-serif text-xl font-bold tracking-wider select-none"
+              style={{ color: primaryColor }}
+            >
               &
             </span>
           </div>
-
-          {/* PROGRESS / LAUNCH ENTRY BUTTON */}
           
         </div>
 
